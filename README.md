@@ -87,6 +87,6 @@ Bug reports and contributions are welcome. Include Android/device details, repro
 
 ## License and support
 
-Original code: [Apache License 2.0](LICENSE). Fonts, dependencies and optional models retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md) and **Settings → Open-source licenses**. The license does not grant trademark rights.
+Original code: [Apache License 2.0](LICENSE). Fonts, dependencies and optional models retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md), the [accompanying license bundle](THIRD_PARTY_LICENSES.txt) attached to Releases, and **Settings → Open-source licenses**. Keep the license bundle with redistributed APKs; native runtime attribution supplements Flutter's generated list. The license does not grant trademark rights.
 
 If Linqo is useful to you, [buy me a coffee](https://buymeacoffee.com/notal2) to support its development. Donations are optional.
