@@ -1,0 +1,43 @@
+name: linqo
+description: A private library with Android sharing and optional on-device extraction.
+publish_to: none
+version: 0.4.1+5
+environment:
+  sdk: '>=3.10.7 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  llamadart: 0.15.6
+  file_picker: ^10.3.10
+  path_provider: ^2.1.5
+  crypto: ^3.0.6
+  sqflite: 2.4.5
+  url_launcher: 6.3.2
+  open_filex: 4.7.0
+  html: 0.15.7
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
+  sqflite_common_ffi: 2.4.5
+flutter:
+  uses-material-design: true
+  assets:
+    - LICENSE
+    - assets/brand/linqo-full.png
+    - assets/brand/linqo-mascot.png
+    - assets/fonts/fredoka-OFL.txt
+    - assets/fonts/nunito-OFL.txt
+  fonts:
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka.ttf
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito.ttf
+hooks:
+  user_defines:
+    llamadart:
+      llamadart_native_runtimes: [llama_cpp]
