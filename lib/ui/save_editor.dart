@@ -12,6 +12,7 @@ import 'components.dart';
 import '../sharing/shared_content.dart';
 import '../sharing/link_preview.dart';
 import 'preview_image.dart';
+import '../sharing/source_content.dart';
 
 class SaveEditor extends StatefulWidget {
   const SaveEditor({
@@ -51,7 +52,12 @@ class _SaveEditorState extends State<SaveEditor> {
   };
   String? pickedPath;
   late String fileName = widget.item?.fileName ?? '';
-  bool saving = false, extract = false, picking = false;
+  bool saving = false, picking = false;
+  late bool extract = widget.item?.autoExtract ?? widget.controller.autoExtract;
+  bool _bodyTouched = false;
+  bool _contentPartial = false;
+  late String _contentKind =
+      widget.item?.contentKind ?? (body.text.isNotEmpty ? 'shared' : '');
   late bool _kindTouched = widget.item != null;
   bool _titleTouched = false, _previewLoading = false, _handedOff = false;
   String _lookupUrl = '';
@@ -74,6 +80,7 @@ class _SaveEditorState extends State<SaveEditor> {
         resolvedUrl: item.resolvedUrl,
         available: item.previewStatus == 'ready',
         imageStatus: item.imageStatus,
+        contentStatus: item.contentStatus,
       );
     } else if (link.text.isNotEmpty) {
       if (PreviewCache.validName(widget.shared?.image ?? '')) {
@@ -96,6 +103,12 @@ class _SaveEditorState extends State<SaveEditor> {
     _request?.cancel();
     _request = null;
     setState(() {
+      if (!_bodyTouched &&
+          _contentKind.isNotEmpty &&
+          _contentKind != 'manual') {
+        body.clear();
+        _contentKind = '';
+      }
       _preview = null;
       _lookupUrl = '';
       _previewLoading = false;
@@ -143,6 +156,7 @@ class _SaveEditorState extends State<SaveEditor> {
         if (!mounted || !identical(_request, job)) return;
         setState(() {
           _preview = mergePreview(previous, metadata);
+          _fillContent(metadata);
           if (!saving && _autoTitle && metadata.title.isNotEmpty) {
             title.text = metadata.title;
           }
@@ -153,6 +167,7 @@ class _SaveEditorState extends State<SaveEditor> {
     if (!mounted || !identical(_request, job)) return;
     setState(() {
       _preview = mergePreview(previous, preview);
+      _fillContent(preview);
       _previewLoading = false;
       if (!saving && _autoTitle && preview.title.isNotEmpty) {
         title.text = preview.title;
@@ -172,6 +187,20 @@ class _SaveEditorState extends State<SaveEditor> {
     body.dispose();
     notes.dispose();
     super.dispose();
+  }
+
+  void _fillContent(LinkPreview preview) {
+    if (!_bodyTouched &&
+        (body.text.trim().isEmpty || _contentKind == 'shared') &&
+        preview.content.isNotEmpty &&
+        (widget.item?.automaticContent ?? true)) {
+      final merged = _contentKind == 'shared'
+          ? mergeSharedContent(body.text, preview.content)
+          : preview.content;
+      _contentPartial = merged.length > 30000;
+      body.text = cleanContentText(merged, 30000);
+      _contentKind = preview.contentKind;
+    }
   }
 
   Future<void> _pick() async {
@@ -262,6 +291,13 @@ class _SaveEditorState extends State<SaveEditor> {
           resolvedUrl: preview?.resolvedUrl ?? '',
           autoTitle: _autoTitle,
           shareId: widget.shared?.id ?? '',
+          automaticContent:
+              !_bodyTouched && (widget.item?.automaticContent ?? true),
+          autoExtract: extract,
+          contentStatus: _contentPartial
+              ? 'partial'
+              : preview?.contentStatus ?? widget.item?.contentStatus ?? 'none',
+          contentKind: _bodyTouched ? 'manual' : _contentKind,
         ),
         id: widget.item?.id,
       );
@@ -289,16 +325,6 @@ class _SaveEditorState extends State<SaveEditor> {
           if (await old.exists()) await old.delete();
         } on FileSystemException {
           /* The committed save remains valid. */
-        }
-      }
-      if (extract) {
-        final item = await widget.controller.store.get(id);
-        if (item != null) {
-          try {
-            await widget.controller.extract(item);
-          } catch (e) {
-            if (mounted) message(context, e);
-          }
         }
       }
       if (mounted) Navigator.pop(context, id);
@@ -498,14 +524,16 @@ class _SaveEditorState extends State<SaveEditor> {
                         title: const Text('Content for extraction'),
                         subtitle: Text(
                           body.text.isEmpty
-                              ? 'No caption or transcript available'
-                              : 'Shared or pasted text · English AI is optional',
+                              ? (_previewLoading
+                                    ? 'Fetching public content…'
+                                    : 'No public text found yet')
+                              : '${sourceContentLabel(_contentKind, _contentPartial ? 'partial' : _preview?.contentStatus ?? 'ready')} · English AI is optional',
                         ),
                         children: [
                           const Padding(
                             padding: EdgeInsets.only(bottom: 16),
                             child: Text(
-                              'A preview image does not include the video’s contents. Add an English caption, recipe or transcript to summarize it.',
+                              'Public captions, recipes and page text fill automatically when available. Video descriptions are not transcripts. You can edit or add text below.',
                             ),
                           ),
                           _sourceField(),
@@ -545,12 +573,14 @@ class _SaveEditorState extends State<SaveEditor> {
                     if (c.modelAvailable)
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Extract English details'),
+                        title: const Text(
+                          'Extract English details automatically',
+                        ),
                         subtitle: const Text(
-                          'Optional. You can keep browsing while it runs.',
+                          'Starts when source text is ready and automatic summarization is enabled in Settings.',
                         ),
                         value: extract,
-                        onChanged: saving || body.text.trim().isEmpty
+                        onChanged: saving
                             ? null
                             : (value) => setState(() => extract = value),
                       )
@@ -655,7 +685,7 @@ class _SaveEditorState extends State<SaveEditor> {
           : 'Caption, recipe or transcript',
       hintText: kind == SaveKind.note
           ? 'Write something worth keeping…'
-          : 'Paste English content here…',
+          : 'Public content fills here automatically…',
       alignLabelWithHint: true,
       helperText: kind == SaveKind.note
           ? null
@@ -664,7 +694,8 @@ class _SaveEditorState extends State<SaveEditor> {
       counterText: '',
     ),
     onChanged: (_) => setState(() {
-      if (body.text.trim().isEmpty) extract = false;
+      _bodyTouched = true;
+      _contentKind = 'manual';
     }),
   );
 }

@@ -13,6 +13,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 - Save immediately into a persistent SQLite library, with favourites, editable collections and indexed search.
 - Share text/links from Android apps, including Instagram, YouTube, websites and locations. Add private file copies from the file picker.
 - Automatic titles and genuine cached preview images, independent of AI. Manually edited titles stay protected; **Refresh details** retries unavailable metadata.
+- Automatic source text: public Instagram captions, structured recipe ingredients/steps, readable webpage text, supported public place details and YouTube descriptions are saved when exposed by the provider. No manual caption copying is needed for supported public links.
 - Static video thumbnails with a play action that opens the original provider. No autoplay, embedded browser or video downloading.
 - Lavender/purple mascot theme, rounded offline fonts, light/dark/system appearance, adaptive phone/tablet layouts and reduced-motion support.
 - Optional English text extraction: summaries, recipe details and places with source evidence. A serial worker keeps browsing available, and extraction can be stopped.
@@ -36,24 +37,27 @@ Settings offers a resumable, checksum-verified download of [Qwen3-0.6B Q4_K_M](h
 
 Inference runs locally through llamadart/llama.cpp with **two CPU threads**, a 2,048-token context and one active extraction at a time. Selection persists; weights load on demand and unload after processing/backgrounding. Download size is not a RAM estimate: inference can use considerably more memory and depends on your device.
 
-Add an English caption, recipe, transcript or other text to **Content for extraction**. **Your notes** are separate personal comments. A link, title or thumbnail alone does not mean Linqo has read a video. Review generated results; source citations do not guarantee factual accuracy.
+Sharing or saving a link starts public content fetching automatically. The fetched caption, recipe or webpage text appears in **Content for extraction**, independently of the optional model. Sender-provided text is retained; manually edited source text and **Your notes** stay protected. A source label distinguishes captions, caption excerpts, webpage text and video descriptions; a YouTube description is not a transcript.
+
+With a model installed, **Settings → Summarize saves automatically** defaults on. New saves can queue English summarization after their source text arrives; each save can opt out, and Stop remains available. Existing empty link saves are eligible for content fetching after migration. Failed public fetches can retry on restart or returning to the foreground; repeated foreground recovery has a one-minute cooldown per app session. **Retry content fetch** and **Refresh details** are also available. No model is downloaded automatically. Review generated results; source citations do not guarantee factual accuracy.
 
 ## Limitations and next work
 
 - Public title/image previews are best effort. Private, removed, region-restricted or login-only posts may show a platform fallback; Instagram access is not guaranteed.
-- Readable webpage extraction, full social captions, video transcription, OCR, semantic search, export/backup and sync are not implemented.
-- Extraction is English-only and limited by both source length and model context. Smaller models can omit or misinterpret details; broader accuracy, thermal, battery and low-memory testing remains necessary.
+- Public content extraction is best effort. Login walls, private posts, JavaScript-only pages and unavailable descriptions can expose no text. Metadata-only captions are marked as excerpts; no login/session bypass is used.
+- Video/audio transcription, protected captions, OCR, semantic search, export/backup and sync are not implemented. YouTube descriptions are supported where public HTML exposes them; arbitrary YouTube subtitle-track downloads are not implemented.
+- Up to 30,000 source characters are retained; bounded/truncated results are marked partial. Automatic AI summarization accepts at most 8,000 characters and is also constrained by the model's smaller token budget. Longer sources stay saved and can be shortened in-app. Smaller models can omit or misinterpret details; broader accuracy, thermal, battery and low-memory testing remains necessary.
 - File-provider/viewer compatibility and more Android/OEM combinations need testing. Android sharing currently receives text/link shares, not arbitrary image/video-only shares.
 - Flutter code is shared, but **no native iOS target is implemented or tested yet**.
 - `file_picker` currently emits a Flutter/Kotlin migration warning. It builds with the pinned toolchain; a plugin upgrade is needed before a future incompatible Flutter upgrade.
 
-The [release review](docs/RELEASE_REVIEW.md) records the checks, fixes and practical test boundaries for this preview.
+The [automatic content report](docs/AUTOMATIC_CONTENT.md) and earlier [release review](docs/RELEASE_REVIEW.md) record checks, fixes and practical test boundaries.
 
 ## Privacy and storage
 
 Saves and file copies live in private app storage. No Linqo account, hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the donation button opens Buy Me a Coffee externally.
 
-Metadata fetching is bounded to two jobs, a ten-second deadline, 256 KiB HTML and 700 KiB per image. The thumbnail disk cache is expendable and capped at 16 MiB/80 entries. Browsing uses local cached previews. No login cookies, WebView or JavaScript runtime are used for previews.
+Metadata/content fetching is bounded to two jobs, a ten-second deadline, 1 MiB HTML per response and 700 KiB per image. The thumbnail disk cache is expendable and capped at 16 MiB/80 entries. Browsing uses local cached previews. No login cookies, WebView or JavaScript runtime are used for previews.
 
 ## Build and test
 

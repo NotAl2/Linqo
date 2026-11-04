@@ -277,6 +277,21 @@ class SettingsScreen extends StatelessWidget {
                               ),
                             ),
                           const Divider(height: 28),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Summarize saves automatically'),
+                            subtitle: const Text(
+                              'When English source text and an installed model are available. Public content fetching works without a model.',
+                            ),
+                            value: controller.autoExtract,
+                            onChanged: (value) async {
+                              try {
+                                await controller.automaticExtraction(value);
+                              } catch (e) {
+                                if (context.mounted) message(context, e);
+                              }
+                            },
+                          ),
                           const Text(
                             'English extraction · 2 CPU threads\nWeights are released on backgrounding or memory pressure. Long sources may need shortening. No media transcription is included yet.',
                           ),

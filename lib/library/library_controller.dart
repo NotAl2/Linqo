@@ -32,6 +32,9 @@ class LibraryController extends ChangeNotifier {
   String activeTitle = '', processingError = '';
   ThemeMode theme = ThemeMode.light;
   bool grid = true;
+  bool autoExtract = true, _foreground = true;
+  bool _recoveringPreviews = false;
+  DateTime? _lastRecovery;
   List<SaveCollection> collections = [];
   int total = 0;
   bool get modelAvailable => lab.model != null;
@@ -43,12 +46,14 @@ class LibraryController extends ChangeNotifier {
       orElse: () => ThemeMode.light,
     );
     grid = await store.preference('layout') != 'list';
+    autoExtract = await store.preference('auto_extract') != 'false';
     await refresh();
     unawaited(_resumePreviews());
     if (restoreModel) {
       unawaited(
         lab.initialize().then((_) {
           if (!_disposed) notifyListeners();
+          if (!_disposed) unawaited(_queueReadySources());
         }),
       );
       unawaited(download.initialize());
@@ -56,13 +61,27 @@ class LibraryController extends ChangeNotifier {
   }
 
   Future<void> _resumePreviews() async {
+    if (_recoveringPreviews ||
+        _disposed ||
+        !_foreground ||
+        (_lastRecovery != null &&
+            DateTime.now().difference(_lastRecovery!) <
+                const Duration(minutes: 1))) {
+      return;
+    }
+    _recoveringPreviews = true;
+    _lastRecovery = DateTime.now();
     try {
       int? beforeId;
       while (!_disposed) {
-        final page = await store.pendingPreviews(beforeId: beforeId);
+        final page = await store.pendingPreviews(
+          beforeId: beforeId,
+          includeUnavailable: true,
+        );
         if (page.isEmpty) break;
         for (final item in page) {
-          if (_disposed) return;
+          if (_disposed || !_foreground) return;
+          if (_previews.containsKey(item.id)) continue;
           await enrichPreview(item.id, item.url, item.title);
         }
         // Move past attempted rows even if a request remains pending/fails.
@@ -71,6 +90,8 @@ class LibraryController extends ChangeNotifier {
       }
     } catch (_) {
       /* Core library stays usable if preview recovery fails. */
+    } finally {
+      _recoveringPreviews = false;
     }
   }
 
@@ -95,6 +116,7 @@ class LibraryController extends ChangeNotifier {
       } finally {
         request?.cancel();
       }
+      if (!_disposed) await _maybeAutoExtract(id);
       return;
     }
     final job = request ?? previewFactory?.call(url) ?? PreviewRequest(url);
@@ -108,6 +130,7 @@ class LibraryController extends ChangeNotifier {
       if (_disposed || !identical(_previews[id], job)) return;
       await store.applyPreview(id, url, expectedTitle, preview);
       if (!_disposed) await refresh();
+      if (!_disposed) await _maybeAutoExtract(id);
     } catch (_) {
       /* Original link and title remain intact. */
     } finally {
@@ -140,6 +163,73 @@ class LibraryController extends ChangeNotifier {
     }
   }
 
+  Future<void> automaticExtraction(bool value) async {
+    await store.setPreference('auto_extract', value.toString());
+    autoExtract = value;
+    if (!_disposed) notifyListeners();
+    if (value) {
+      _suspended = false;
+      await _queueReadySources();
+    }
+  }
+
+  Future<void> _maybeAutoExtract(int id) async {
+    if (_disposed ||
+        !_foreground ||
+        _suspended ||
+        !autoExtract ||
+        !modelAvailable ||
+        download.busy) {
+      return;
+    }
+    try {
+      final item = await store.get(id);
+      if (item == null ||
+          !item.autoExtract ||
+          item.status != 'idle' ||
+          item.contentStatus == 'pending' ||
+          item.contentKind == 'place_link' ||
+          item.body.trim().isEmpty ||
+          item.body.length > 8000 ||
+          !supportsEnglishExtraction(item.body)) {
+        return;
+      }
+      await extract(item, automatic: true);
+    } catch (_) {
+      /* Source stays available for manual extraction. */
+    }
+  }
+
+  Future<void> _queueReadySources() async {
+    if (_disposed ||
+        !_foreground ||
+        _suspended ||
+        !autoExtract ||
+        !modelAvailable) {
+      return;
+    }
+    int? beforeId;
+    try {
+      while (!_disposed && _foreground && !_suspended && autoExtract) {
+        final page = await store.pendingExtractions(beforeId: beforeId);
+        if (page.isEmpty) break;
+        for (final id in page) {
+          await _maybeAutoExtract(id);
+        }
+        beforeId = page.last;
+      }
+    } catch (_) {
+      /* A setup/recovery failure never blocks the library. */
+    }
+  }
+
+  void foreground() {
+    _foreground = true;
+    _suspended = false;
+    unawaited(_queueReadySources());
+    unawaited(_resumePreviews());
+  }
+
   Future<int> save(SaveDraft draft, {int? id}) async {
     if (id != null && (id == activeId || _queue.contains(id))) {
       throw StateError('Stop extraction before editing this save.');
@@ -150,6 +240,7 @@ class LibraryController extends ChangeNotifier {
       await _deleteAttachment(previous.attachment);
     }
     await refresh();
+    unawaited(_maybeAutoExtract(saved));
     return saved;
   }
 
@@ -193,10 +284,19 @@ class LibraryController extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> extract(SavedItem item) async {
+  Future<void> extract(SavedItem item, {bool automatic = false}) async {
     item =
         await store.get(item.id) ??
         (throw StateError('This save no longer exists.'));
+    if (automatic &&
+        (_disposed ||
+            !_foreground ||
+            _suspended ||
+            !autoExtract ||
+            !item.autoExtract ||
+            item.status != 'idle')) {
+      return;
+    }
     if (download.busy || lab.phase == LabPhase.importing) {
       throw StateError('Wait for model setup to finish before extracting.');
     }
@@ -283,7 +383,11 @@ class LibraryController extends ChangeNotifier {
       if (!_disposed) {
         await refresh();
         notifyListeners();
-        if (_queue.isNotEmpty && !_suspended) unawaited(_drain());
+        if (_queue.isNotEmpty && !_suspended) {
+          unawaited(_drain());
+        } else if (!_suspended) {
+          unawaited(_queueReadySources());
+        }
       }
     }
   }
@@ -304,6 +408,7 @@ class LibraryController extends ChangeNotifier {
   }
 
   Future<void> background() async {
+    _foreground = false;
     download.pause();
     await stop();
     await lab.releaseMemory();
@@ -318,6 +423,7 @@ class LibraryController extends ChangeNotifier {
     if (installed != null && !_disposed) {
       lab.model = installed;
       notifyListeners();
+      unawaited(_queueReadySources());
     }
   }
 
@@ -328,6 +434,7 @@ class LibraryController extends ChangeNotifier {
     await lab.importModel(path, name);
     if (lab.error != null) throw StateError(lab.error!);
     if (!_disposed) notifyListeners();
+    if (!_disposed) unawaited(_queueReadySources());
   }
 
   @override

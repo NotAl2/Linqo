@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../domain/extraction.dart';
 import '../sharing/link_preview.dart';
+import '../sharing/source_content.dart';
 import 'models.dart';
 
 class LibraryStore {
@@ -15,7 +16,7 @@ class LibraryStore {
     final database = await (factory ?? databaseFactory).openDatabase(
       location,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys=ON');
           await db.rawQuery('PRAGMA journal_mode=WAL');
@@ -55,10 +56,12 @@ class LibraryStore {
           );
           await _addPreviewSchema(db);
           await _addNotesSchema(db);
+          await _addContentSchema(db);
         },
         onUpgrade: (db, old, _) async {
           if (old < 2) await _addPreviewSchema(db);
           if (old < 3) await _addNotesSchema(db);
+          if (old < 4) await _addContentSchema(db);
         },
       ),
     );
@@ -88,6 +91,23 @@ class LibraryStore {
     }
     await db.execute(
       'CREATE UNIQUE INDEX saves_share_receipt ON saves(source_share_id)',
+    );
+  }
+
+  static Future<void> _addContentSchema(DatabaseExecutor db) async {
+    for (final definition in [
+      'auto_content INTEGER NOT NULL DEFAULT 0',
+      'auto_extract INTEGER NOT NULL DEFAULT 0',
+      "content_status TEXT NOT NULL DEFAULT 'none'",
+      "content_kind TEXT NOT NULL DEFAULT ''",
+    ]) {
+      await db.execute('ALTER TABLE saves ADD COLUMN $definition');
+    }
+    await db.execute(
+      "UPDATE saves SET auto_content=1, auto_extract=1, content_status='pending' WHERE url<>'' AND trim(body)=''",
+    );
+    await db.execute(
+      "UPDATE saves SET content_status='ready', content_kind='manual' WHERE trim(body)<>''",
     );
   }
 
@@ -173,6 +193,30 @@ class LibraryStore {
         'preview_status': draft.previewStatus,
         'resolved_url': draft.resolvedUrl,
         'auto_title': draft.autoTitle ? 1 : 0,
+        'auto_content': draft.automaticContent ? 1 : 0,
+        'auto_extract': draft.autoExtract ? 1 : 0,
+        'content_status':
+            draft.contentKind == 'shared' &&
+                draft.automaticContent &&
+                url.isNotEmpty &&
+                ![
+                  'ready',
+                  'partial',
+                  'unavailable',
+                ].contains(draft.contentStatus)
+            ? 'pending'
+            : draft.body.trim().isNotEmpty
+            ? (draft.contentStatus == 'partial' ? 'partial' : 'ready')
+            : url.isEmpty || !draft.automaticContent
+            ? 'none'
+            : draft.contentStatus == 'unavailable'
+            ? 'unavailable'
+            : 'pending',
+        'content_kind': draft.body.trim().isEmpty
+            ? ''
+            : draft.contentKind.isEmpty
+            ? 'manual'
+            : draft.contentKind,
         if (id == null)
           'source_share_id': draft.shareId.isEmpty ? null : draft.shareId,
       };
@@ -247,7 +291,7 @@ class LibraryStore {
     }
     if (favorites) conditions.add('s.favorite=1');
     final rows = await db.rawQuery(
-      "SELECT s.id, s.title, substr(s.body,1,360) AS body, s.url, s.kind, s.created_at, s.favorite, s.status, substr(s.summary,1,400) AS summary, '' AS extraction, '' AS extracted_from, s.error, s.file_name, s.attachment, substr(s.notes,1,360) AS notes, s.image_status, s.description, s.preview_image, s.preview_status, s.resolved_url, s.auto_title, 1 AS preview FROM saves s ${conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}'} ORDER BY s.created_at DESC, s.id DESC LIMIT ? OFFSET ?",
+      "SELECT s.id, s.title, substr(s.body,1,360) AS body, s.url, s.kind, s.created_at, s.favorite, s.status, substr(s.summary,1,400) AS summary, '' AS extraction, '' AS extracted_from, s.error, s.file_name, s.attachment, substr(s.notes,1,360) AS notes, s.image_status, s.description, s.preview_image, s.preview_status, s.resolved_url, s.auto_title, s.auto_content, s.auto_extract, s.content_status, s.content_kind, 1 AS preview FROM saves s ${conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}'} ORDER BY s.created_at DESC, s.id DESC LIMIT ? OFFSET ?",
       [...args, limit, offset],
     );
     return _hydrate(rows);
@@ -287,11 +331,14 @@ class LibraryStore {
     return rows.isEmpty ? null : rows.single['id'] as int;
   }
 
-  Future<List<SavedItem>> pendingPreviews({int? beforeId}) async => _hydrate(
+  Future<List<SavedItem>> pendingPreviews({
+    int? beforeId,
+    bool includeUnavailable = false,
+  }) async => _hydrate(
     await db.query(
       'saves',
       where:
-          "(preview_status='pending' OR image_status='pending')${beforeId == null ? '' : ' AND id < ?'}",
+          "(preview_status='pending' OR image_status='pending' OR content_status='pending'${includeUnavailable ? " OR (auto_content=1 AND content_status='unavailable' AND trim(body)='')" : ''})${beforeId == null ? '' : ' AND id < ?'}",
       whereArgs: beforeId == null ? null : [beforeId],
       orderBy: 'id DESC',
       limit: 16,
@@ -311,6 +358,21 @@ class LibraryStore {
     );
     if (rows.isEmpty) return;
     final row = rows.single;
+    final canFillContent =
+        row['auto_content'] == 1 &&
+        ((row['body'] as String).trim().isEmpty ||
+            row['content_kind'] == 'shared');
+    final merged = row['content_kind'] == 'shared' && preview.content.isNotEmpty
+        ? mergeSharedContent(row['body'] as String, preview.content)
+        : preview.content;
+    final sourceStatus = merged.length > 30000
+        ? 'partial'
+        : merged.isNotEmpty
+        ? (preview.contentStatus == 'partial' ? 'partial' : 'ready')
+        : (row['body'] as String).trim().isNotEmpty &&
+              preview.contentStatus != 'pending'
+        ? 'ready'
+        : preview.contentStatus;
     await tx.update(
       'saves',
       {
@@ -329,6 +391,20 @@ class LibraryStore {
                 (row['preview_image'] as String).isNotEmpty
             ? 'ready'
             : preview.imageStatus,
+        if (canFillContent) ...{
+          'content_status': sourceStatus,
+          if (preview.content.isNotEmpty) ...{
+            'body': cleanContentText(merged, 30000),
+            'content_kind': preview.contentKind,
+            if (row['body'] != cleanContentText(merged, 30000)) ...{
+              'summary': '',
+              'extraction': '',
+              'extracted_from': '',
+              'status': 'idle',
+              'error': '',
+            },
+          },
+        },
         // This flag describes ownership, not whether a lookup has run. Failed
         // requests and later refreshes remain eligible until a user edits it.
       },
@@ -341,6 +417,17 @@ class LibraryStore {
   Future<int> count() async =>
       Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM saves')) ??
       0;
+  Future<List<int>> pendingExtractions({
+    int? beforeId,
+  }) async => (await db.query(
+    'saves',
+    columns: ['id'],
+    where:
+        "auto_extract=1 AND status='idle' AND trim(body)<>''${beforeId == null ? '' : ' AND id < ?'}",
+    whereArgs: beforeId == null ? null : [beforeId],
+    orderBy: 'id DESC',
+    limit: 40,
+  )).map((row) => row['id'] as int).toList();
   Future<List<SaveCollection>> collections() async {
     final rows = await db.rawQuery(
       'SELECT c.*, COUNT(m.save_id) AS count, (SELECT s.title FROM saves s JOIN memberships x ON x.save_id=s.id WHERE x.collection_id=c.id ORDER BY s.created_at DESC LIMIT 1) AS preview FROM collections c LEFT JOIN memberships m ON m.collection_id=c.id GROUP BY c.id ORDER BY c.name COLLATE NOCASE',

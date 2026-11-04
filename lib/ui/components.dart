@@ -5,6 +5,22 @@ import 'preview_image.dart';
 import 'brand.dart';
 import '../theme.dart';
 
+String sourceContentLabel(String kind, String status) {
+  final label = switch (kind) {
+    'caption' => 'Fetched public caption',
+    'caption_excerpt' => 'Fetched public caption excerpt',
+    'video_description' => 'Fetched video description · not a transcript',
+    'recipe' => 'Fetched recipe ingredients and steps',
+    'article' => 'Fetched webpage text',
+    'place' => 'Fetched public place details',
+    'place_link' => 'Place name from the saved link',
+    'page_description' => 'Fetched page description · may be a short excerpt',
+    'shared' => 'Text supplied by the sharing app',
+    _ => 'Your source text',
+  };
+  return status == 'partial' ? '$label · partial content' : label;
+}
+
 Future<void> openOriginalLink(BuildContext context, String url) async {
   try {
     if (!await launchUrl(

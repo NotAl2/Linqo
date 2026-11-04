@@ -375,8 +375,22 @@ class SaveDetail extends StatelessWidget {
                                           ? 'Waiting in your extraction queue. Keep browsing; your save is already here.'
                                           : 'Finding the useful bits on your device. Keep browsing while this runs.')
                                     : item.body.isEmpty
-                                    ? 'Add an English caption, transcript or note to extract details. A link alone is kept as a bookmark.'
-                                    : 'Turn your English source text into a summary and source-backed details. Optional, private and on-device.',
+                                    ? (item.contentStatus == 'pending'
+                                          ? 'Public content is being fetched automatically. Your bookmark is already saved.'
+                                          : 'No usable public text was exposed. Retry content fetching or add text below.')
+                                    : (item.body.length > 8000
+                                          ? 'Source text is saved. Shorten it to 8,000 characters or less for on-device summarization.'
+                                          : controller.autoExtract &&
+                                                item.autoExtract &&
+                                                item.contentKind !=
+                                                    'place_link' &&
+                                                controller.modelAvailable &&
+                                                item.status == 'idle' &&
+                                                supportsEnglishExtraction(
+                                                  item.body,
+                                                )
+                                          ? 'English details are queued automatically when source text is ready. You can also start them here.'
+                                          : 'Your source text is ready for optional, private on-device summarization.'),
                               ),
                             if (item.error.isNotEmpty) ...[
                               const SizedBox(height: 12),
@@ -448,11 +462,37 @@ class SaveDetail extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     if (item.body.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          sourceContentLabel(
+                            item.contentKind,
+                            item.contentStatus,
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    if (item.body.isNotEmpty)
                       SelectableText(
                         item.body,
                         style: Theme.of(context).textTheme.bodyLarge,
                       )
-                    else
+                    else ...[
+                      Text(
+                        item.contentStatus == 'pending'
+                            ? 'Fetching public captions or page text…'
+                            : 'This provider did not expose usable public text. You can retry or add text yourself. A cover image is not a transcript.',
+                      ),
+                      if (item.url.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () => controller.enrichPreview(
+                            item.id,
+                            item.url,
+                            item.title,
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Retry content fetch'),
+                        ),
                       TextButton.icon(
                         onPressed: busy
                             ? null
@@ -463,6 +503,7 @@ class SaveDetail extends StatelessWidget {
                         icon: const Icon(Icons.edit_note_rounded),
                         label: const Text('Add caption or transcript'),
                       ),
+                    ],
                     if (item.url.isNotEmpty) ...[
                       const SizedBox(height: 24),
                       SelectableText(

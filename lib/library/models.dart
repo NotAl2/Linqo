@@ -47,6 +47,10 @@ class SavedItem {
     this.resolvedUrl = '',
     this.shareId = '',
     this.autoTitle = false,
+    this.automaticContent = false,
+    this.autoExtract = false,
+    this.contentStatus = 'none',
+    this.contentKind = '',
   });
   final int id;
   final String title,
@@ -62,6 +66,8 @@ class SavedItem {
   final String notes, imageStatus;
   final String description, previewImage, previewStatus, resolvedUrl, shareId;
   final bool autoTitle;
+  final bool automaticContent, autoExtract;
+  final String contentStatus, contentKind;
   final SaveKind kind;
   final DateTime createdAt;
   final bool favorite;
@@ -110,6 +116,10 @@ class SavedItem {
     resolvedUrl: row['resolved_url'] as String? ?? '',
     shareId: row['source_share_id'] as String? ?? '',
     autoTitle: row['auto_title'] == 1,
+    automaticContent: row['auto_content'] == 1,
+    autoExtract: row['auto_extract'] == 1,
+    contentStatus: row['content_status'] as String? ?? 'none',
+    contentKind: row['content_kind'] as String? ?? '',
     collectionIds: row['collection_ids'] == null
         ? const []
         : (jsonDecode(row['collection_ids'] as String) as List).cast<int>(),
@@ -137,10 +147,16 @@ class SaveDraft {
     this.resolvedUrl = '',
     this.shareId = '',
     this.autoTitle = false,
+    this.automaticContent = true,
+    this.autoExtract = false,
+    this.contentStatus = 'none',
+    this.contentKind = '',
   });
   final String title, body, notes, imageStatus, url, fileName, attachment;
   final String description, previewImage, previewStatus, resolvedUrl, shareId;
   final bool autoTitle;
+  final bool automaticContent, autoExtract;
+  final String contentStatus, contentKind;
   final SaveKind kind;
   final List<int> collectionIds;
 }

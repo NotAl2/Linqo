@@ -9,6 +9,7 @@ import 'package:html/parser.dart' as html;
 import 'package:path_provider/path_provider.dart';
 import 'shared_content.dart';
 import '../library/models.dart';
+import 'source_content.dart';
 
 class LinkPreview {
   const LinkPreview({
@@ -18,10 +19,14 @@ class LinkPreview {
     this.resolvedUrl = '',
     this.available = false,
     this.imageStatus = 'none',
+    this.content = '',
+    this.contentKind = '',
+    this.contentStatus = 'unavailable',
   });
   final String title, description, image, resolvedUrl;
   final bool available;
   final String imageStatus;
+  final String content, contentKind, contentStatus;
 }
 
 LinkPreview mergePreview(LinkPreview? previous, LinkPreview next) =>
@@ -35,6 +40,14 @@ LinkPreview mergePreview(LinkPreview? previous, LinkPreview next) =>
           ? next.resolvedUrl
           : previous?.resolvedUrl ?? '',
       available: next.available || previous?.available == true,
+      content: next.content.isNotEmpty ? next.content : previous?.content ?? '',
+      contentKind: next.content.isNotEmpty
+          ? next.contentKind
+          : previous?.contentKind ?? '',
+      contentStatus:
+          next.content.isNotEmpty || previous?.content.isNotEmpty != true
+          ? next.contentStatus
+          : previous!.contentStatus,
       imageStatus: next.image.isNotEmpty || previous?.image.isNotEmpty == true
           ? 'ready'
           : next.imageStatus,
@@ -103,7 +116,7 @@ class PreviewRequest extends PreviewJob {
     _client = HttpClient(context: securityContextForTest)
       ..connectionTimeout = const Duration(seconds: 4)
       ..idleTimeout = const Duration(seconds: 1)
-      ..userAgent = 'Linqo/0.3 (link preview)'
+      ..userAgent = 'Linqo/0.5 (public content preview)'
       ..findProxy = (_) => 'DIRECT';
     _client.connectionFactory = (uri, _, _) async {
       final addresses = await InternetAddress.lookup(
@@ -141,14 +154,22 @@ class PreviewRequest extends PreviewJob {
           return _partial;
         })
         .then((value) {
-          if (value.imageStatus == 'pending') {
+          if (value.imageStatus == 'pending' ||
+              value.contentStatus == 'pending') {
             value = LinkPreview(
               title: value.title,
               description: value.description,
               image: value.image,
               resolvedUrl: value.resolvedUrl,
               available: value.available,
-              imageStatus: 'unavailable',
+              imageStatus: value.imageStatus == 'pending'
+                  ? 'unavailable'
+                  : value.imageStatus,
+              content: value.content,
+              contentKind: value.contentKind,
+              contentStatus: value.contentStatus == 'pending'
+                  ? 'unavailable'
+                  : value.contentStatus,
             );
           }
           if (!_metadata.isCompleted) _metadata.complete(value);
@@ -193,7 +214,7 @@ class PreviewRequest extends PreviewJob {
     _client.close(force: true);
   }
 
-  Future<(Uint8List, Uri, String)> _get(
+  Future<(Uint8List, Uri, String, bool)> _get(
     Uri uri,
     int maxBytes, {
     bool image = false,
@@ -242,6 +263,7 @@ class PreviewRequest extends PreviewJob {
         throw const FormatException('Image too large.');
       }
       final bytes = BytesBuilder(copy: false);
+      var truncated = false;
       await for (final chunk in response) {
         if (_cancelled) throw const HttpException('Cancelled');
         final remaining = maxBytes - bytes.length;
@@ -250,10 +272,11 @@ class PreviewRequest extends PreviewJob {
         );
         if (chunk.length > remaining || bytes.length == maxBytes) {
           if (image) throw const FormatException('Image too large.');
-          break; // Only HTML head is needed; don't download a whole article.
+          truncated = true;
+          break; // Bounded public content; never download an unbounded page.
         }
       }
-      return (bytes.takeBytes(), uri, type);
+      return (bytes.takeBytes(), uri, type, truncated);
     }
     throw const HttpException('Too many redirects.');
   }
@@ -282,45 +305,81 @@ class PreviewRequest extends PreviewJob {
             400,
           ),
           'image': json['thumbnail_url'] as String? ?? '',
+          'contentStatus': 'pending',
         };
+        // Titles stay immediate; a public watch page may also expose the
+        // creator's description. This is not a caption-track/transcript API.
+        _publishMetadata(fields, resolved);
+        try {
+          final page = await _get(
+            Uri.https('www.youtube.com', '/watch', {'v': youtube, 'hl': 'en'}),
+            1024 * 1024,
+          ).timeout(const Duration(seconds: 4));
+          final extra = await _parsePage(page.$1, page.$2, truncated: page.$4);
+          for (final key in ['content', 'contentKind', 'contentStatus']) {
+            fields[key] = extra[key] ?? '';
+          }
+        } catch (_) {
+          fields['contentStatus'] = 'unavailable';
+        }
       } catch (_) {
         if (_cancelled) return const LinkPreview();
-        final page = await _get(uri, 256 * 1024);
+        final page = await _get(uri, 1024 * 1024);
         resolved = page.$2;
-        fields = await _parsePage(page.$1, page.$2);
+        fields = await _parsePage(page.$1, page.$2, truncated: page.$4);
       }
     } else if (instagramContentUri(uri) case final instagram?) {
       fields = {};
       try {
-        final page = await _get(instagram, 256 * 1024);
+        final page = await _get(instagram, 1024 * 1024);
         resolved = page.$2;
-        fields = await _parsePage(page.$1, page.$2);
+        fields = await _parsePage(page.$1, page.$2, truncated: page.$4);
       } catch (_) {
         if (_cancelled) return const LinkPreview();
       }
       // Public embeds sometimes expose a genuine cover when the ordinary
       // logged-out page has no metadata. Parse HTML only; never execute scripts.
-      if ((fields['image'] ?? '').isEmpty || (fields['title'] ?? '').isEmpty) {
-        _publishMetadata(fields, resolved);
+      // Prefer the public captioned embed over a potentially shortened OG
+      // excerpt even when the first page already supplies a title/cover.
+      {
+        if ((fields['content'] ?? '').isEmpty) {
+          fields['contentStatus'] = 'pending';
+        }
+        _publishMetadata(fields, resolved, deferContent: true);
         try {
           final embed = instagram.replace(
             path: '${instagram.path}embed/captioned/',
           );
-          final page = await _get(embed, 256 * 1024);
-          final extra = await _parsePage(page.$1, page.$2);
+          final page = await _get(embed, 1024 * 1024);
+          final extra = await _parsePage(page.$1, page.$2, truncated: page.$4);
           for (final key in ['title', 'description', 'image']) {
             if ((fields[key] ?? '').isEmpty) fields[key] = extra[key] ?? '';
+          }
+          if ((extra['content'] ?? '').isNotEmpty &&
+              (extra['contentKind'] == 'caption' ||
+                  (extra['content'] ?? '').length >
+                      (fields['content'] ?? '').length)) {
+            for (final key in ['content', 'contentKind', 'contentStatus']) {
+              fields[key] = extra[key] ?? '';
+            }
+            resolved = instagram;
+          }
+          if ((fields['content'] ?? '').isEmpty) {
+            fields['contentStatus'] = 'unavailable';
           }
         } catch (_) {
           // Keep any metadata obtained from the original page.
         }
       }
     } else {
-      final page = await _get(uri, 256 * 1024);
+      final page = await _get(uri, 1024 * 1024);
       resolved = page.$2;
-      fields = await _parsePage(page.$1, page.$2);
+      fields = await _parsePage(page.$1, page.$2, truncated: page.$4);
     }
     if (_cancelled) return const LinkPreview();
+    if (fields['contentStatus'] == 'pending') {
+      fields['contentStatus'] = 'unavailable';
+    }
     _publishMetadata(fields, resolved);
     var image = '';
     if (fields['image']?.isNotEmpty == true) {
@@ -345,30 +404,66 @@ class PreviewRequest extends PreviewJob {
       available:
           fields['title']?.isNotEmpty == true ||
           fields['description']?.isNotEmpty == true ||
+          fields['content']?.isNotEmpty == true ||
           image.isNotEmpty,
       imageStatus: image.isNotEmpty ? 'ready' : 'unavailable',
+      content: fields['content'] ?? '',
+      contentKind: fields['contentKind'] ?? '',
+      contentStatus: fields['contentStatus'] ?? 'unavailable',
     );
   }
 
-  void _publishMetadata(Map<String, String> fields, Uri resolved) {
+  void _publishMetadata(
+    Map<String, String> fields,
+    Uri resolved, {
+    bool deferContent = false,
+  }) {
     _partial = LinkPreview(
       title: fields['title'] ?? '',
       description: fields['description'] ?? '',
       resolvedUrl: resolved.toString(),
       available:
           fields['title']?.isNotEmpty == true ||
-          fields['description']?.isNotEmpty == true,
+          fields['description']?.isNotEmpty == true ||
+          fields['content']?.isNotEmpty == true,
       imageStatus: fields['image']?.isNotEmpty == true
           ? 'pending'
           : 'unavailable',
+      content: fields['content'] ?? '',
+      contentKind: fields['contentKind'] ?? '',
+      contentStatus: fields['contentStatus'] ?? 'unavailable',
     );
-    if (!_metadata.isCompleted) _metadata.complete(_partial);
+    if (!_metadata.isCompleted) {
+      _metadata.complete(
+        deferContent
+            ? LinkPreview(
+                title: _partial.title,
+                description: _partial.description,
+                resolvedUrl: _partial.resolvedUrl,
+                available: _partial.available,
+                imageStatus: _partial.imageStatus,
+                contentStatus: 'pending',
+              )
+            : _partial,
+      );
+    }
   }
 }
 
-Future<Map<String, String>> _parsePage(Uint8List bytes, Uri uri) => Isolate.run(
-  () => parsePreviewHtml(utf8.decode(bytes, allowMalformed: true), uri),
-);
+Future<Map<String, String>> _parsePage(
+  Uint8List bytes,
+  Uri uri, {
+  bool truncated = false,
+}) => Isolate.run(() {
+  final result = parsePreviewHtml(
+    utf8.decode(bytes, allowMalformed: true),
+    uri,
+  );
+  if (truncated && result['content']?.isNotEmpty == true) {
+    result['contentStatus'] = 'partial';
+  }
+  return result;
+});
 
 Uri? instagramContentUri(Uri uri) {
   if (!isHost(uri.host.toLowerCase(), 'instagram.com')) return null;
@@ -473,6 +568,7 @@ Map<String, String> parsePreviewHtml(String text, Uri uri) {
   }
   if (image.length > 4096) image = '';
   return {
+    ...extractPageContent(doc, uri),
     'title': title,
     'description': description,
     'image': image.isEmpty ? '' : uri.resolve(image).toString(),

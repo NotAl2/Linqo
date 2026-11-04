@@ -117,6 +117,10 @@ void main() {
       await store.db.execute('DROP INDEX saves_share_receipt');
       for (final column in [
         'description',
+        'auto_content',
+        'auto_extract',
+        'content_status',
+        'content_kind',
         'preview_image',
         'preview_status',
         'resolved_url',
@@ -198,6 +202,14 @@ void main() {
         const SaveDraft(title: 'Original', body: 'Original caption'),
       );
       await store.db.execute('ALTER TABLE saves DROP COLUMN notes');
+      for (final column in [
+        'auto_content',
+        'auto_extract',
+        'content_status',
+        'content_kind',
+      ]) {
+        await store.db.execute('ALTER TABLE saves DROP COLUMN $column');
+      }
       await store.db.execute('ALTER TABLE saves DROP COLUMN image_status');
       await store.db.setVersion(2);
       await store.close();

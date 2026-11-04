@@ -26,4 +26,5 @@ PRODUCT.md
 # Local device traces and development-session records do not ship with source.
 docs/*
 !docs/RELEASE_REVIEW.md
+!docs/AUTOMATIC_CONTENT.md
 !docs/screenshots/

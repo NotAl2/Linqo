@@ -35,6 +35,7 @@ class _LibraryShellState extends State<LibraryShell>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) c.foreground();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       unawaited(c.background());
