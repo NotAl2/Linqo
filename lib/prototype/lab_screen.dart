@@ -354,7 +354,7 @@ class _LabScreenState extends State<LabScreen> with WidgetsBindingObserver {
         enabled: !lab.busy,
         minLines: 7,
         maxLines: 14,
-        maxLength: 8000,
+        maxLength: 30000,
         decoration: const InputDecoration(
           labelText: 'Source text',
           alignLabelWithHint: true,

@@ -41,6 +41,34 @@ void main() {
   });
 
   test(
+    'missing weights clear remembered selection and delete never resurrects a backup',
+    () async {
+      final imported = await store.import(source.path, 'model.gguf');
+      await File(imported.path).delete();
+      expect(await store.restore(), isNull);
+      expect(
+        await File('${sandbox.path}/models/selected.json').exists(),
+        isFalse,
+      );
+      await store.import(source.path, 'again.gguf');
+      await File('${sandbox.path}/models/keep.txt').writeAsString('keep');
+      await store.remove();
+      expect(await store.restore(), isNull);
+      expect(await File(source.path).exists(), isTrue);
+      expect(await File('${sandbox.path}/models/keep.txt').exists(), isTrue);
+      expect(
+        (await store.import(source.path, 'redownloaded.gguf')).name,
+        'redownloaded.gguf',
+      );
+    },
+  );
+  test('one verified orphan is recovered when its manifest is lost', () async {
+    final imported = await store.import(source.path, 'model.gguf');
+    await File('${sandbox.path}/models/selected.json').delete();
+    expect((await store.restore())!.sha256, imported.sha256);
+  });
+
+  test(
     'cancelled replacement keeps the previous file and remembered selection',
     () async {
       final original = await store.import(source.path, 'original.gguf');

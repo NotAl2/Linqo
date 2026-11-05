@@ -295,6 +295,10 @@ class SaveDetail extends StatelessWidget {
                             ),
                             const SizedBox(height: 16),
                             if (result != null) ...[
+                              const Text(
+                                'Summary · excerpts from your saved text',
+                              ),
+                              const SizedBox(height: 8),
                               SelectableText(
                                 result.summary,
                                 style: Theme.of(context).textTheme.bodyLarge,
@@ -369,28 +373,34 @@ class SaveDetail extends StatelessWidget {
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ] else
-                              Text(
-                                busy
-                                    ? (item.status == 'queued'
-                                          ? 'Waiting in your extraction queue. Keep browsing; your save is already here.'
-                                          : 'Finding the useful bits on your device. Keep browsing while this runs.')
-                                    : item.body.isEmpty
-                                    ? (item.contentStatus == 'pending'
-                                          ? 'Public content is being fetched automatically. Your bookmark is already saved.'
-                                          : 'No usable public text was exposed. Retry content fetching or add text below.')
-                                    : (item.body.length > 8000
-                                          ? 'Source text is saved. Shorten it to 8,000 characters or less for on-device summarization.'
-                                          : controller.autoExtract &&
-                                                item.autoExtract &&
-                                                item.contentKind !=
-                                                    'place_link' &&
-                                                controller.modelAvailable &&
-                                                item.status == 'idle' &&
-                                                supportsEnglishExtraction(
-                                                  item.body,
-                                                )
-                                          ? 'English details are queued automatically when source text is ready. You can also start them here.'
-                                          : 'Your source text is ready for optional, private on-device summarization.'),
+                              AnimatedBuilder(
+                                animation: controller.lab,
+                                builder: (context, _) => Text(
+                                  busy
+                                      ? (item.status == 'queued'
+                                            ? 'Waiting in your extraction queue. Keep browsing; your save is already here.'
+                                            : controller.lab.totalParts > 1 &&
+                                                  controller.activeId == item.id
+                                            ? 'Processing part ${controller.lab.currentPart} of ${controller.lab.totalParts}. Keep browsing; your full source stays saved.'
+                                            : 'Finding the useful bits on your device. Keep browsing while this runs.')
+                                      : item.body.isEmpty
+                                      ? (item.contentStatus == 'pending'
+                                            ? 'Public content is being fetched automatically. Your bookmark is already saved.'
+                                            : 'No usable public text was exposed. Retry content fetching or add text below.')
+                                      : (item.body.length > 30000
+                                            ? 'Source text is saved. Select up to 30,000 characters for extraction.'
+                                            : controller.autoExtract &&
+                                                  item.autoExtract &&
+                                                  item.contentKind !=
+                                                      'place_link' &&
+                                                  controller.modelAvailable &&
+                                                  item.status == 'idle' &&
+                                                  supportsEnglishExtraction(
+                                                    item.body,
+                                                  )
+                                            ? 'English details are queued automatically when source text is ready. You can also start them here.'
+                                            : 'Your source text is ready for optional, private on-device summarization.'),
+                                ),
                               ),
                             if (item.error.isNotEmpty) ...[
                               const SizedBox(height: 12),

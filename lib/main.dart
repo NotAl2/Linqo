@@ -10,6 +10,18 @@ import 'theme.dart';
 import 'sharing/shared_content.dart';
 import 'ui/save_editor.dart';
 import 'ui/brand.dart';
+import 'ui/support_prompt.dart';
+import 'library/support_prompt_policy.dart';
+
+class _SupportNavigation extends NavigatorObserver {
+  _SupportNavigation(this.changed);
+  final VoidCallback changed;
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => changed();
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      changed();
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,9 +43,15 @@ void main() {
 }
 
 class LinqoApp extends StatefulWidget {
-  const LinqoApp({super.key, this.controller, this.enableSharing});
+  const LinqoApp({
+    super.key,
+    this.controller,
+    this.enableSharing,
+    this.enableSupportPrompts,
+  });
   final LibraryController? controller;
   final bool? enableSharing;
+  final bool? enableSupportPrompts;
   @override
   State<LinqoApp> createState() => _LinqoAppState();
 }
@@ -45,6 +63,13 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
   final _shares = AndroidShareInbox();
   bool _drainingShares = false, _shareWakeAgain = false;
+  Timer? _supportTimer;
+  int _lastSaveEpoch = 0;
+  bool _supportPending = false, _supportShown = false, _showingSupport = false;
+  bool _foreground = true;
+  late final _supportNavigation = _SupportNavigation(_scheduleSupport);
+  bool get _supportEnabled =>
+      widget.enableSupportPrompts ?? widget.controller == null;
   bool get _sharing =>
       Platform.isAndroid && (widget.enableSharing ?? widget.controller == null);
   @override
@@ -81,6 +106,8 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
       controller = c;
       mode = c.theme;
       c.addListener(_themeChanged);
+      c.lab.addListener(_scheduleSupport);
+      c.download.addListener(_scheduleSupport);
       setState(() => error = null);
       if (_sharing) {
         WidgetsBinding.instance.addPostFrameCallback(
@@ -99,6 +126,12 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) {
+      _scheduleSupport();
+    } else {
+      _supportTimer?.cancel();
+    }
     if (state == AppLifecycleState.resumed && _sharing) {
       unawaited(_checkShares());
     }
@@ -108,6 +141,7 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
     if (!mounted ||
         !_sharing ||
         controller == null ||
+        _showingSupport ||
         _navigator.currentState == null) {
       return;
     }
@@ -155,12 +189,85 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
     if (mounted && controller!.theme != mode) {
       setState(() => mode = controller!.theme);
     }
+    _scheduleSupport();
+  }
+
+  void _scheduleSupport() {
+    final c = controller;
+    if (!mounted || !_supportEnabled || c == null || _supportShown) return;
+    if (c.supportSaveEpoch != _lastSaveEpoch) {
+      _lastSaveEpoch = c.supportSaveEpoch;
+      _supportPending = true;
+    }
+    _supportTimer?.cancel();
+    if (_supportPending && _foreground && !_showingSupport) {
+      _supportTimer = Timer(
+        const Duration(seconds: 2),
+        () => unawaited(_maybeSupport()),
+      );
+    }
+  }
+
+  Future<void> _maybeSupport() async {
+    final c = controller;
+    final nav = _navigator.currentState;
+    if (!mounted ||
+        c == null ||
+        nav == null ||
+        !_foreground ||
+        _supportShown ||
+        _showingSupport ||
+        !_supportPending) {
+      return;
+    }
+    if (nav.canPop() ||
+        _drainingShares ||
+        c.processing ||
+        c.lab.busy ||
+        c.download.busy ||
+        c.hasPreviewWork ||
+        View.of(nav.context).viewInsets.bottom > 0) {
+      _scheduleSupport();
+      return;
+    }
+    _showingSupport = true;
+    try {
+      final policy = SupportPromptPolicy(c.store.db);
+      if (!await policy.claim()) {
+        _supportPending = false;
+        return;
+      }
+      if (!mounted ||
+          !_foreground ||
+          nav.canPop() ||
+          c.processing ||
+          c.lab.busy ||
+          c.download.busy ||
+          c.hasPreviewWork) {
+        return;
+      }
+      _supportShown = true;
+      _supportPending = false;
+      await showDialog<void>(
+        context: nav.context,
+        builder: (_) => SupportPrompt(policy: policy),
+      );
+    } catch (_) {
+      // Optional support must never interrupt saving or opening the library.
+      _supportPending = false;
+    } finally {
+      _showingSupport = false;
+      if (mounted && _sharing) unawaited(_checkShares());
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (_sharing) _shares.dispose();
+    _supportTimer?.cancel();
+    controller?.lab.removeListener(_scheduleSupport);
+    controller?.download.removeListener(_scheduleSupport);
     controller?.removeListener(_themeChanged);
     if (widget.controller == null) controller?.dispose();
     super.dispose();
@@ -169,6 +276,7 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigator,
+    navigatorObservers: [_supportNavigation],
     title: 'Linqo',
     debugShowCheckedModeBanner: false,
     theme: linqoTheme(Brightness.light),

@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.7.0 — 2026-11-05 (preview)
+
+- Replace model-written summaries with verified source excerpts selected by line reference. Re-ground existing summaries and backup imports, including the local search index, while preserving user fields.
+- Process long saved text as token-checked parts within the existing context and two-thread defaults. Show part progress, retain original content and flag incomplete coverage. Retry prior context-limit failures after upgrade.
+- Prefer article bodies over surrounding follow/thread controls when fetching webpages. Filter Google follow controls and hidden credits; use article-aware classification to avoid treating general articles as recipes or unrelated place lists.
+- Add model deletion/redownload and check file presence/integrity on startup, foreground, Settings and before loading. Recover a single verified model whose selection manifest was lost, and clear stale installed/error states.
+- Validate with 124 host tests, clean static analysis and physical Redmi Note 7 Pro tests for the supplied long article, grounded recipe extraction, cancellation, missing-file recovery, deletion and fresh model download. Keep the optional model and two CPU threads; preserve library data and preferences during updates.
+
+## 0.6.2 — 2026-11-05 (preview)
+
+- Add the optional Support Linqo popup after the first successful save, then at spaced random save intervals with a seven-day cooldown and at most one popup per session.
+- Include Buy me a coffee, Later and a persistent Don’t show again checkbox. Wait for a quiet foreground library screen; edits, duplicate share receipts and imports do not advance reminders.
+
+## 0.6.1 — 2026-11-04 (preview)
+
+- Harden low-memory recovery: stop and drain native work, release the model, preserve interrupted saves and keep later foreground saves eligible for automatic extraction.
+- Clear stale extraction results when a new source is rejected, preventing the previous save's output from being reused.
+- Add physical-device coverage for automatic public reel captions, complete recipes, named places, cancellation, retry and Android memory warnings on a Redmi Note 7 Pro. Keep two CPU threads and the compact optional model.
+
+## 0.6.0 — 2026-11-04 (preview)
+
+- Show “Already installed” for the verified compact English model, including after restarting, and guard against redundant downloads.
+- Add ZIP export/import for saves, notes, extraction results, favourites, collections and file copies. Imports merge by persistent backup IDs, preserve existing edits/settings and rebuild local search.
+- Add a short “Why we made Linqo” section in Settings.
+
+## 0.5.1 — 2026-11-04 (preview)
+
+- Keep creator credits, social calls to action and hashtags out of recipe ingredients and preparation steps.
+- Validate model-selected preparation text and flag ingredient-only captions as incomplete instead of claiming instructions are available.
+- Verified automatic caption fetching and native extraction on a physical Android phone with the existing optional model and two threads. Added regression tests and a separate-library phone test to protect existing saves and settings.
+
 ## 0.5.0 — 2026-11-04 (preview)
 
 - Automatically fetch public Instagram captions, structured recipe ingredients/steps, readable webpage text, public place data and YouTube descriptions.

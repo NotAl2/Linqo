@@ -182,9 +182,14 @@ Map<String, String> extractPageContent(Document document, Uri uri) {
     );
   }
   final candidates = document.querySelectorAll(
-    'article, main, [role="main"], .entry-content, .post-content, [itemprop="articleBody"]',
+    '[itemprop="articleBody"], .article-body, .entry-content, .post-content',
   );
-  for (final candidate in candidates) {
+  // Prefer the article body over a surrounding <main> containing follows,
+  // comments, recommended stories and site controls.
+  final preferred = candidates.isNotEmpty
+      ? candidates
+      : document.querySelectorAll('article, main, [role="main"]');
+  for (final candidate in preferred) {
     final text = _nodeText(candidate);
     if (text.length >= 80) return result(text, 'article');
   }
@@ -248,13 +253,28 @@ String _nodeText(Node node) {
   if (copy is Element || copy is DocumentFragment) {
     final elements = copy is Element
         ? copy.querySelectorAll(
-            'script, style, noscript, nav, footer, header, aside, form, dialog, button, svg, iframe, .CaptionUsername, .CaptionComments, [hidden], [aria-hidden="true"], .comments, .related-posts, .cookie-banner',
+            'script, style, noscript, nav, footer, header, aside, form, dialog, button, svg, iframe, .CaptionUsername, .CaptionComments, [hidden], [aria-hidden="true"], [role="button"], [role="navigation"], .comments, .related-posts, .cookie-banner, .valnet-threads, [data-component="threads"]',
           )
         : (copy as DocumentFragment).querySelectorAll(
             'script, style, noscript, iframe',
           );
     for (final element in elements) {
       element.remove();
+    }
+    if (copy is Element) {
+      for (final control in copy.querySelectorAll(
+        '[class*="w-google-addus-btn"]',
+      )) {
+        control.remove();
+      }
+      for (final hidden in copy.querySelectorAll('[style]')) {
+        if (RegExp(
+          r'(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\b',
+          caseSensitive: false,
+        ).hasMatch(hidden.attributes['style'] ?? '')) {
+          hidden.remove();
+        }
+      }
     }
   }
   final out = StringBuffer();

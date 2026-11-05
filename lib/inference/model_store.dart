@@ -30,6 +30,32 @@ class ModelStore {
   bool _committing = false;
   bool get importCommitting => _committing;
 
+  Future<void> remove() async {
+    if (_importActive) throw StateError('Wait for model setup to finish.');
+    _importActive = true;
+    try {
+      final root = await _root();
+      await for (final entry in root.list(followLinks: false)) {
+        final name = entry.uri.pathSegments.last;
+        if (entry is File &&
+            RegExp(
+              r'^(?:(?:prototype|model-[0-9]+)\.gguf(?:\.part)?|selected\.json(?:\.bak|\.new)?)$',
+            ).hasMatch(name)) {
+          await entry.delete();
+        }
+      }
+    } finally {
+      _importActive = false;
+    }
+  }
+
+  Future<void> _forget(Directory root) async {
+    for (final suffix in ['', '.bak', '.new']) {
+      final file = File('${root.path}/selected.json$suffix');
+      if (await file.exists()) await file.delete();
+    }
+  }
+
   /// The optional downloader already owns this private file. Verify it and
   /// move it into the selection transaction instead of keeping a second copy.
   Future<ImportedModel> installDownload(
@@ -94,7 +120,25 @@ class ModelStore {
     if (!await manifest.exists()) {
       // Adopt the preceding prototype's private copy once, without recopying it.
       final legacy = File('${root.path}/prototype.gguf');
-      if (!await legacy.exists()) return null;
+      if (!await legacy.exists()) {
+        final candidates = await root
+            .list(followLinks: false)
+            .where(
+              (entry) =>
+                  entry is File &&
+                  RegExp(
+                    r'^model-[0-9]+\.gguf$',
+                  ).hasMatch(entry.uri.pathSegments.last),
+            )
+            .take(2)
+            .toList();
+        if (candidates.length != 1) return null;
+        final recovered = await Isolate.run(
+          () => _inspect(candidates.single.path, 'Recovered GGUF model'),
+        );
+        await _remember(root, recovered);
+        return recovered;
+      }
       final model = await Isolate.run(
         () => _inspect(legacy.path, 'Imported GGUF'),
       );
@@ -119,6 +163,10 @@ class ModelStore {
     final path = '${root.path}/${raw['file']}';
     final name = raw['name'] as String;
     final file = File(path);
+    if (!await file.exists()) {
+      await _forget(root);
+      return null;
+    }
     await _checkHeader(file);
     final stat = await file.stat();
     if (stat.size != raw['bytes']) {

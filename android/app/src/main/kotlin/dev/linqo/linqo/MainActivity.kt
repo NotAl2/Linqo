@@ -24,9 +24,36 @@ class MainActivity : FlutterActivity() {
     private val main = Handler(Looper.getMainLooper())
     private var channel: MethodChannel? = null
     private val prefs by lazy { getSharedPreferences("share_inbox", MODE_PRIVATE) }
+    private var backupResult: MethodChannel.Result? = null
+    private var backupSource: File? = null
 
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
+        MethodChannel(engine.dartExecutor.binaryMessenger, "dev.linqo/backup").setMethodCallHandler { call, result ->
+            if (call.method != "save") {
+                result.notImplemented()
+            } else if (backupResult != null) {
+                result.error("backup_busy", "A backup destination is already open.", null)
+            } else {
+                try {
+                    val source = File(requireNotNull(call.argument<String>("path"))).canonicalFile
+                    val root = File(cacheDir, "library-backups").canonicalFile
+                    require(source.path.startsWith(root.path + File.separator) && source.isFile)
+                    backupSource = source
+                    backupResult = result
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_TITLE, call.argument<String>("name") ?: "Linqo-backup.zip")
+                    }, 6201)
+                } catch (_: Exception) {
+                    backupSource = null
+                    backupResult = null
+                    result.error("backup_destination", "Could not open a backup destination. Please try again.", null)
+                }
+            }
+        }
         channel = MethodChannel(engine.dartExecutor.binaryMessenger, "dev.linqo/share")
         channel!!.setMethodCallHandler { call, result ->
             if (call.method != "peek" && call.method != "ack") {
@@ -66,6 +93,44 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(value)
         setIntent(value)
         receive(value)
+    }
+
+    @Deprecated("Android activity result bridge")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != 6201) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+        val result = backupResult ?: return
+        val source = backupSource
+        val destination = data?.data
+        if (resultCode != RESULT_OK || destination == null || source == null) {
+            backupResult = null
+            backupSource = null
+            result.success(null)
+            return
+        }
+        io.execute {
+            try {
+                contentResolver.openOutputStream(destination, "wt").use { output ->
+                    requireNotNull(output)
+                    source.inputStream().use { input -> input.copyTo(output) }
+                }
+                main.post {
+                    backupResult = null
+                    backupSource = null
+                    result.success(destination.toString())
+                }
+            } catch (_: Exception) {
+                // Remove the incomplete destination when the provider permits it.
+                try { android.provider.DocumentsContract.deleteDocument(contentResolver, destination) } catch (_: Exception) {}
+                main.post {
+                    backupResult = null
+                    backupSource = null
+                    result.error("backup_write", "Could not write the backup. Choose another destination and retry.", null)
+                }
+            }
+        }
     }
 
     private fun receive(value: Intent) {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/library/library_store.dart';
@@ -104,7 +105,8 @@ void main() {
         raw,
         result,
       );
-      expect((await store.query(query: 'fragrant')).single.id, id);
+      expect(await store.query(query: 'fragrant'), isEmpty);
+      expect((await store.query(query: 'onions')).single.id, id);
       await store.save(
         const SaveDraft(
           title: 'New title',
@@ -126,6 +128,62 @@ void main() {
         ),
         isFalse,
       );
+    },
+  );
+  test(
+    'v4 upgrade repairs unsupported summaries and retries context failures without changing user fields',
+    () async {
+      final collection = await store.saveCollection('Keep this collection', 1);
+      final id = await store.save(
+        SaveDraft(
+          title: 'Keep my title',
+          notes: 'Personal note',
+          body: 'Ingredients: chickpeas\nCook chickpeas.\nServe with rice.',
+          kind: SaveKind.recipe,
+          collectionIds: [collection],
+        ),
+      );
+      await store.favorite(id, true);
+      await store.setPreference('theme', 'dark');
+      await store.db.update(
+        'saves',
+        {
+          'extraction': jsonEncode({
+            'schema_version': 2,
+            'title': 'Recipe',
+            'summary': 'Spiced dinner for four people.',
+            'type': 'recipe',
+            'ingredient_lines': [1],
+            'step_lines': [2, 3],
+            'places': [],
+            'detail_lines': [],
+          }),
+          'extracted_from':
+              'Ingredients: chickpeas\nCook chickpeas.\nServe with rice.',
+          'summary': 'Spiced dinner for four people.',
+          'status': 'failed',
+          'error': 'This source exceeds the prototype context.',
+        },
+        where: 'id=?',
+        whereArgs: [id],
+      );
+      await store.db.execute('PRAGMA user_version=4');
+      await store.close();
+      store = await LibraryStore.open(
+        path: '${directory.path}/library.db',
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      final item = (await store.get(id))!;
+      expect(item.title, 'Keep my title');
+      expect(item.notes, 'Personal note');
+      expect(item.favorite, isTrue);
+      expect(item.collectionNames, ['Keep this collection']);
+      expect(item.summary, isNot(contains('Spiced')));
+      expect(item.summary, contains('chickpeas'));
+      expect(item.status, 'idle');
+      expect(item.error, isEmpty);
+      expect(await store.preference('theme'), 'dark');
+      expect(await store.query(query: 'Spiced'), isEmpty);
     },
   );
   test(

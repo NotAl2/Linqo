@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,10 +7,23 @@ import '../inference/model_download.dart';
 import '../library/library_controller.dart';
 import 'components.dart';
 import 'brand.dart';
+import 'backup_section.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
   final LibraryController controller;
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  LibraryController get controller => widget.controller;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(controller.recheckModel());
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Make it yours')),
@@ -85,7 +99,7 @@ class SettingsScreen extends StatelessWidget {
                   final lab = controller.lab;
                   final download = controller.download;
                   final canChange =
-                      !controller.processing && !lab.busy && !download.busy;
+                      !controller.processing && !controller.modelManagementBusy;
                   return Card(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -163,7 +177,8 @@ class SettingsScreen extends StatelessWidget {
                           ],
                           if (!download.busy)
                             FilledButton.icon(
-                              onPressed: canChange
+                              onPressed:
+                                  canChange && !controller.compactModelInstalled
                                   ? () async {
                                       try {
                                         await controller.downloadModel();
@@ -174,10 +189,17 @@ class SettingsScreen extends StatelessWidget {
                                       }
                                     }
                                   : null,
-                              icon: const Icon(Icons.download_rounded),
+                              icon: Icon(
+                                controller.compactModelInstalled
+                                    ? Icons.check_circle_outline_rounded
+                                    : Icons.download_rounded,
+                              ),
                               label: Text(
-                                download.received > 0 &&
-                                        download.phase != DownloadPhase.complete
+                                controller.compactModelInstalled
+                                    ? 'Already installed'
+                                    : download.received > 0 &&
+                                          download.phase !=
+                                              DownloadPhase.complete
                                     ? 'Resume download'
                                     : lab.model == null
                                     ? 'Download English model · 397 MB'
@@ -185,8 +207,49 @@ class SettingsScreen extends StatelessWidget {
                               ),
                             ),
                           const SizedBox(height: 8),
+                          if (lab.model != null || lab.error != null)
+                            OutlinedButton.icon(
+                              onPressed: canChange
+                                  ? () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text(
+                                            'Delete the model?',
+                                          ),
+                                          content: const Text(
+                                            'This removes the optional model and any paused download. Your saves, collections and settings stay here. You can download the model again afterward.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('Keep model'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text('Delete model'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed != true) return;
+                                      try {
+                                        await controller.deleteModel();
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          message(context, e);
+                                        }
+                                      }
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              label: const Text('Delete model'),
+                            ),
+                          const SizedBox(height: 8),
                           const Text(
-                            'One-time download from Hugging Face. Works offline afterward. Setup needs temporary free space. Downloading a model does not load its weights.',
+                            'Download from Hugging Face. Works offline afterward. Delete and redownload whenever needed. Setup needs temporary free space; downloading does not load the weights.',
                           ),
                           if (download.error != null) ...[
                             const SizedBox(height: 12),
@@ -302,6 +365,8 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 24),
+              BackupSection(controller: controller),
+              const SizedBox(height: 24),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -330,6 +395,23 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Why we made Linqo',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'A recipe to try. A place to visit. A little spark for later. We made Linqo to give those small discoveries a home, so you can spend less time looking and more time living them.',
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),

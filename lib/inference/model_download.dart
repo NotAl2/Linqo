@@ -63,6 +63,17 @@ class ModelDownload extends ChangeNotifier {
     _client?.close(force: true);
   }
 
+  Future<void> discard() async {
+    if (busy) throw StateError('Pause the download before removing it.');
+    final file = await _partial();
+    if (await file.exists()) await file.delete();
+    phase = DownloadPhase.idle;
+    received = 0;
+    total = null;
+    error = null;
+    _emit();
+  }
+
   Future<ImportedModel?> start() async {
     if (busy || _disposed) return null;
     _paused = false;

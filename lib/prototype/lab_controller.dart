@@ -60,7 +60,16 @@ class RunReport {
 class LabController extends ChangeNotifier {
   LabController({required LocalRuntime runtime, ModelStore? modelStore})
     : _runtime = runtime,
-      _modelStore = modelStore ?? ModelStore();
+      _modelStore = modelStore ?? ModelStore() {
+    if (runtime is ProgressRuntime) {
+      (runtime as ProgressRuntime).onProgress = (part, total, firstToken) {
+        currentPart = part;
+        totalParts = total;
+        if (firstToken) activeFirstOutputMs ??= _runWatch?.elapsedMilliseconds;
+        _emit();
+      };
+    }
+  }
   final LocalRuntime _runtime;
   final ModelStore _modelStore;
   LabPhase phase = LabPhase.idle;
@@ -68,6 +77,9 @@ class LabController extends ChangeNotifier {
   bool modelLoaded = false;
   String? error;
   int threads = 2;
+  int currentPart = 0, totalParts = 0;
+  Stopwatch? _runWatch;
+  bool selectionManaged = false;
   int? modelLoadMs;
   int? modelLoadedRssBytes;
   int? runStartRssBytes;
@@ -107,6 +119,7 @@ class LabController extends ChangeNotifier {
   Future<void> initialize() async {
     if (busy || model != null || _disposed) return;
     final operation = _operation = Completer<void>();
+    selectionManaged = true;
     phase = LabPhase.restoring;
     error = null;
     _emit();
@@ -158,6 +171,7 @@ class LabController extends ChangeNotifier {
   Future<void> importModel(String path, String name) async {
     if (busy || _disposed) return;
     final operation = _operation = Completer<void>();
+    selectionManaged = true;
     _cancelRequested = false;
     phase = LabPhase.importing;
     error = null;
@@ -186,6 +200,63 @@ class LabController extends ChangeNotifier {
     _emit();
   }
 
+  Future<void> refreshModel() async {
+    if (!selectionManaged || busy || _disposed) return;
+    final operation = _operation = Completer<void>();
+    phase = LabPhase.restoring;
+    try {
+      final restored = await _modelStore.restore();
+      if (modelLoaded &&
+          (restored == null ||
+              restored.path != model?.path ||
+              restored.sha256 != model?.sha256)) {
+        await _runtime.unload();
+        modelLoaded = false;
+      }
+      model = restored;
+      error = null;
+      phase = modelLoaded ? LabPhase.ready : LabPhase.idle;
+    } catch (_) {
+      if (modelLoaded) {
+        await _runtime.unload();
+        modelLoaded = false;
+      }
+      model = null;
+      error = 'The model is missing or damaged. Download or import it again.';
+      phase = LabPhase.failed;
+    } finally {
+      await _finishOperation(operation);
+      _emit();
+    }
+  }
+
+  Future<void> deleteModel() async {
+    if (busy || _disposed) {
+      throw StateError('Wait for model processing to stop.');
+    }
+    final operation = _operation = Completer<void>();
+    phase = LabPhase.unloading;
+    _emit();
+    try {
+      await _runtime.unload();
+      modelLoaded = false;
+      await _modelStore.remove();
+      model = null;
+      error = null;
+      result = null;
+      report = null;
+      phase = LabPhase.idle;
+    } catch (e) {
+      model = null;
+      phase = LabPhase.failed;
+      error = 'Could not remove all model files. Try again. $e';
+      rethrow;
+    } finally {
+      await _finishOperation(operation);
+      _emit();
+    }
+  }
+
   Future<void> load() async {
     final selected = model;
     if (selected == null || busy || modelLoaded || _disposed) return;
@@ -196,7 +267,24 @@ class LabController extends ChangeNotifier {
     _emit();
     final watch = Stopwatch()..start();
     try {
-      await _runtime.load(selected.path, RuntimeSettings(threads: threads));
+      if (selectionManaged) {
+        try {
+          model = await _modelStore.restore();
+        } catch (_) {
+          model = null;
+          rethrow;
+        }
+        if (model == null) {
+          throw StateError(
+            'The model file is missing. Download or import it again in Settings.',
+          );
+        }
+      }
+      if (_cancelRequested || _disposed || _releaseRequested) {
+        phase = LabPhase.cancelled;
+        return;
+      }
+      await _runtime.load(model!.path, RuntimeSettings(threads: threads));
       if (_disposed || _cancelRequested || _releaseRequested) {
         await _runtime.unload();
         phase = LabPhase.cancelled;
@@ -242,10 +330,16 @@ class LabController extends ChangeNotifier {
 
   Future<void> extract(String text, {String? typeHint}) async {
     if (!canExtract) return;
-    final source = SourceDocument(text, typeHint: typeHint);
-    if (source.lines.isEmpty || text.length > 8000) {
+    // A rejected retry must never leave the preceding save's result available
+    // for callers to persist as though it belonged to the new source.
+    result = null;
+    report = null;
+    evidence = null;
+    rawOutput = '';
+    final source = SourceDocument.segmented(text, typeHint: typeHint);
+    if (source.lines.isEmpty || text.length > 30000) {
       error =
-          'Enter 1–8,000 characters. Longer sources will need chunking in the next milestone.';
+          'Use 1–30,000 characters of source text. Your saved original is unchanged.';
       _emit();
       return;
     }
@@ -261,7 +355,9 @@ class LabController extends ChangeNotifier {
     _cancelWatch = null;
     cancellationMs = null;
     activeFirstOutputMs = null;
-    final watch = Stopwatch()..start();
+    final watch = _runWatch = Stopwatch()..start();
+    currentPart = 0;
+    totalParts = 0;
     runStartRssBytes = ProcessInfo.currentRss;
     int? firstOutputMs;
     var outcome = 'failed';
@@ -308,7 +404,7 @@ class LabController extends ChangeNotifier {
       _stopTimings();
       report = RunReport(
         elapsedMs: watch.elapsedMilliseconds,
-        firstOutputMs: firstOutputMs,
+        firstOutputMs: activeFirstOutputMs ?? firstOutputMs,
         outputCharacters: buffer.length,
         frames: _frames.length,
         uiP95Ms: _percentile(

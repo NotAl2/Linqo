@@ -43,7 +43,7 @@ class _LibraryShellState extends State<LibraryShell>
   }
 
   @override
-  void didHaveMemoryPressure() => unawaited(c.background());
+  void didHaveMemoryPressure() => unawaited(c.memoryPressure());
   void navigate(int index) {
     FocusScope.of(context).unfocus();
     setState(() => destination = index);
@@ -173,7 +173,7 @@ class ProcessingStrip extends StatelessWidget {
   final LibraryController controller;
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: controller,
+    animation: Listenable.merge([controller, controller.lab]),
     builder: (context, _) {
       if (!controller.processing && controller.processingError.isEmpty) {
         return const SizedBox.shrink();
@@ -194,7 +194,7 @@ class ProcessingStrip extends StatelessWidget {
               Expanded(
                 child: Text(
                   controller.processing
-                      ? 'Extracting · ${controller.activeTitle.isEmpty ? 'Preparing model' : controller.activeTitle}'
+                      ? 'Extracting${controller.lab.totalParts > 1 ? ' · part ${controller.lab.currentPart}/${controller.lab.totalParts}' : ''} · ${controller.activeTitle.isEmpty ? 'Preparing model' : controller.activeTitle}'
                       : controller.processingError,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

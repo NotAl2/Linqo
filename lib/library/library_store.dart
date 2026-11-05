@@ -4,6 +4,8 @@ import '../domain/extraction.dart';
 import '../sharing/link_preview.dart';
 import '../sharing/source_content.dart';
 import 'models.dart';
+import 'library_backup.dart';
+import 'support_prompt_policy.dart';
 
 class LibraryStore {
   LibraryStore._(this.db);
@@ -16,7 +18,7 @@ class LibraryStore {
     final database = await (factory ?? databaseFactory).openDatabase(
       location,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys=ON');
           await db.rawQuery('PRAGMA journal_mode=WAL');
@@ -62,6 +64,47 @@ class LibraryStore {
           if (old < 2) await _addPreviewSchema(db);
           if (old < 3) await _addNotesSchema(db);
           if (old < 4) await _addContentSchema(db);
+          if (old < 5) {
+            await db.update('saves', {
+              'status': 'idle',
+              'error': '',
+            }, where: "status='failed' AND error LIKE '%prototype context%'");
+            int last = 0;
+            while (true) {
+              final rows = await db.query(
+                'saves',
+                where: "id>? AND (extraction<>'' OR summary<>'')",
+                whereArgs: [last],
+                orderBy: 'id',
+                limit: 40,
+              );
+              if (rows.isEmpty) break;
+              for (final row in rows) {
+                last = row['id'] as int;
+                String summary = '';
+                try {
+                  summary = ExtractionResult.parse(
+                    row['extraction'] as String,
+                    SourceDocument(
+                      row['extracted_from'] as String,
+                      typeHint: SaveKind.values
+                          .byName(row['kind'] as String)
+                          .extractionType,
+                    ),
+                  ).summary;
+                } catch (_) {
+                  /* Keep original text; discard unverifiable derived summary. */
+                }
+                await db.update(
+                  'saves',
+                  {'summary': summary},
+                  where: 'id=?',
+                  whereArgs: [last],
+                );
+                await LibraryStore._(db)._index(db, last);
+              }
+            }
+          }
         },
       ),
     );
@@ -223,6 +266,7 @@ class LibraryStore {
       final int savedId;
       if (id == null) {
         savedId = await tx.insert('saves', {...values, 'created_at': now});
+        await SupportPromptPolicy.recordSave(tx);
       } else {
         final original = await tx.query(
           'saves',
@@ -494,13 +538,14 @@ class LibraryStore {
     int id,
     String source,
     String raw,
-    ExtractionResult result,
-  ) => db.transaction((tx) async {
+    ExtractionResult result, {
+    String? evidenceSource,
+  }) => db.transaction((tx) async {
     final updated = await tx.update(
       'saves',
       {
         'extraction': raw,
-        'extracted_from': source,
+        'extracted_from': evidenceSource ?? source,
         'summary': result.summary,
         'status': result.isPartial ? 'partial' : 'complete',
         'error': '',
@@ -529,4 +574,86 @@ class LibraryStore {
   }
 
   Future<void> close() => db.close();
+
+  Future<({int added, int skipped})> mergeBackup(
+    List<Map<String, Object?>> saves,
+    List<Map<String, Object?>> collections,
+    List<Map<String, Object?>> memberships,
+    Map<String, String> assets,
+  ) => db.transaction((tx) async {
+    await tx.execute(
+      'CREATE TABLE IF NOT EXISTS backup_receipts (fingerprint TEXT PRIMARY KEY, save_id INTEGER NOT NULL REFERENCES saves(id) ON DELETE CASCADE)',
+    );
+    final known = <String, int>{
+      for (final row in await tx.query('backup_receipts'))
+        row['fingerprint'] as String: row['save_id'] as int,
+    };
+    final collectionMap = <int, int>{};
+    for (final row in collections) {
+      final existing = await tx.query(
+        'collections',
+        where: 'name=? COLLATE NOCASE',
+        whereArgs: [row['name']],
+      );
+      collectionMap[row['id'] as int] = existing.isNotEmpty
+          ? existing.first['id'] as int
+          : await tx.insert('collections', {
+              'name': row['name'],
+              'color': row['color'],
+            });
+    }
+    var added = 0, skipped = 0;
+    final saveMap = <int, int>{};
+    for (final row in saves) {
+      final key = row['key'] as String;
+      final existing = known[key];
+      if (existing != null) {
+        saveMap[row['id'] as int] = existing;
+        skipped++;
+        continue;
+      }
+      final body = row['body'] as String;
+      final extracted = row['extraction'] as String;
+      var summary = '';
+      var status = 'idle';
+      if (extracted.isNotEmpty) {
+        try {
+          final result = ExtractionResult.parse(
+            extracted,
+            SourceDocument(
+              row['extracted_from'] as String,
+              typeHint: SaveKind.values
+                  .byName(row['kind'] as String)
+                  .extractionType,
+            ),
+          );
+          status = result.isPartial ? 'partial' : 'complete';
+          summary = result.summary;
+        } catch (_) {
+          status = 'interrupted';
+        }
+      }
+      final id = await tx.insert('saves', {
+        ...LibraryBackup.portable(row),
+        'summary': summary,
+        'attachment': assets['${row['id']}'] ?? '',
+        'status': status,
+        'preview_status': 'none',
+        'image_status': 'none',
+        'content_status': body.trim().isNotEmpty ? 'ready' : 'none',
+      });
+      await tx.insert('backup_receipts', {'fingerprint': key, 'save_id': id});
+      known[key] = id;
+      saveMap[row['id'] as int] = id;
+      await _index(tx, id);
+      added++;
+    }
+    for (final row in memberships) {
+      await tx.rawInsert(
+        'INSERT OR IGNORE INTO memberships(save_id,collection_id) VALUES (?,?)',
+        [saveMap[row['save_id']], collectionMap[row['collection_id']]],
+      );
+    }
+    return (added: added, skipped: skipped);
+  });
 }

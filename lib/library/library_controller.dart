@@ -9,6 +9,8 @@ import '../prototype/lab_controller.dart';
 import 'library_store.dart';
 import 'models.dart';
 import '../sharing/link_preview.dart';
+import '../domain/extraction.dart';
+import '../domain/source_rules.dart';
 
 class LibraryController extends ChangeNotifier {
   LibraryController(
@@ -29,6 +31,10 @@ class LibraryController extends ChangeNotifier {
   final Map<int, PreviewJob> _previews = {};
   int? activeId;
   bool processing = false, _disposed = false, _suspended = false;
+  bool _deletingModel = false;
+  bool get modelManagementBusy => _deletingModel || lab.busy || download.busy;
+  Completer<void>? _processingDone;
+  Future<void>? _pressureRelease;
   String activeTitle = '', processingError = '';
   ThemeMode theme = ThemeMode.light;
   bool grid = true;
@@ -37,7 +43,10 @@ class LibraryController extends ChangeNotifier {
   DateTime? _lastRecovery;
   List<SaveCollection> collections = [];
   int total = 0;
+  int supportSaveEpoch = 0;
+  bool get hasPreviewWork => _previews.isNotEmpty;
   bool get modelAvailable => lab.model != null;
+  bool get compactModelInstalled => lab.model?.sha256 == download.expectedSha;
   bool previewBusy(int id) => _previews.containsKey(id);
   Future<void> initialize({bool restoreModel = true}) async {
     final mode = await store.preference('theme');
@@ -190,7 +199,7 @@ class LibraryController extends ChangeNotifier {
           item.contentStatus == 'pending' ||
           item.contentKind == 'place_link' ||
           item.body.trim().isEmpty ||
-          item.body.length > 8000 ||
+          item.body.length > 30000 ||
           !supportsEnglishExtraction(item.body)) {
         return;
       }
@@ -226,8 +235,36 @@ class LibraryController extends ChangeNotifier {
   void foreground() {
     _foreground = true;
     _suspended = false;
-    unawaited(_queueReadySources());
+    unawaited(recheckModel());
     unawaited(_resumePreviews());
+  }
+
+  Future<void> recheckModel() async {
+    await lab.refreshModel();
+    if (!_disposed) {
+      notifyListeners();
+      await _queueReadySources();
+    }
+  }
+
+  Future<void> deleteModel() async {
+    if (download.busy || lab.phase == LabPhase.importing) {
+      throw StateError('Wait for model setup to finish first.');
+    }
+    if (_deletingModel) return;
+    _deletingModel = true;
+    notifyListeners();
+    try {
+      await stop();
+      await lab.releaseMemory();
+      await _processingDone?.future;
+      await lab.deleteModel();
+      await download.discard();
+    } finally {
+      _deletingModel = false;
+      if (_foreground) _suspended = false;
+      if (!_disposed) notifyListeners();
+    }
   }
 
   Future<int> save(SaveDraft draft, {int? id}) async {
@@ -236,6 +273,7 @@ class LibraryController extends ChangeNotifier {
     }
     final previous = id == null ? null : await store.get(id);
     final saved = await store.save(draft, id: id);
+    if (id == null) supportSaveEpoch++;
     if (previous != null && previous.attachment != draft.attachment) {
       await _deleteAttachment(previous.attachment);
     }
@@ -300,6 +338,11 @@ class LibraryController extends ChangeNotifier {
     if (download.busy || lab.phase == LabPhase.importing) {
       throw StateError('Wait for model setup to finish before extracting.');
     }
+    if (_pressureRelease != null) {
+      throw StateError(
+        'Android is reclaiming memory. Please retry in a moment.',
+      );
+    }
     if (!modelAvailable) {
       throw StateError(
         'Download or import the optional AI model in Settings first.',
@@ -310,9 +353,9 @@ class LibraryController extends ChangeNotifier {
         'Add English text, a caption or transcript first. A link alone cannot be summarized.',
       );
     }
-    if (item.body.length > 8000) {
+    if (item.body.length > 30000) {
       throw StateError(
-        'Shorten the extraction text to 8,000 characters or less.',
+        'Keep extraction text within the 30,000-character save limit.',
       );
     }
     if (!supportsEnglishExtraction(item.body)) {
@@ -331,6 +374,7 @@ class LibraryController extends ChangeNotifier {
   Future<void> _drain() async {
     if (processing || _suspended || _disposed) return;
     processing = true;
+    final done = _processingDone = Completer<void>();
     processingError = '';
     notifyListeners();
     try {
@@ -354,10 +398,21 @@ class LibraryController extends ChangeNotifier {
           );
           continue;
         }
-        await lab.extract(item.body, typeHint: item.kind.extractionType);
+        final hint =
+            item.kind.extractionType ??
+            (item.contentKind == 'article'
+                ? SourceRules.articleHint(SourceDocument(item.body))
+                : null);
+        await lab.extract(item.body, typeHint: hint);
         if (_disposed) break;
         if (lab.result != null && !_suspended) {
-          await store.extraction(id, item.body, lab.rawOutput, lab.result!);
+          await store.extraction(
+            id,
+            item.body,
+            lab.rawOutput,
+            lab.result!,
+            evidenceSource: lab.evidence?.text,
+          );
         } else {
           await store.status(
             id,
@@ -380,6 +435,8 @@ class LibraryController extends ChangeNotifier {
       activeId = null;
       activeTitle = '';
       processing = false;
+      _processingDone = null;
+      done.complete();
       if (!_disposed) {
         await refresh();
         notifyListeners();
@@ -414,7 +471,39 @@ class LibraryController extends ChangeNotifier {
     await lab.releaseMemory();
   }
 
+  /// A low-memory warning is not an app-background event. Drain native work
+  /// before releasing its context, then keep future foreground saves eligible
+  /// for automatic extraction. Interrupted work requires an explicit retry.
+  Future<void> memoryPressure() =>
+      _pressureRelease ??= _releaseForPressure().whenComplete(() {
+        _pressureRelease = null;
+      });
+
+  Future<void> _releaseForPressure() async {
+    final affected = <int>{?activeId, ..._queue};
+    final active = _processingDone?.future;
+    try {
+      await stop();
+      await lab.releaseMemory();
+      await active;
+      if (_disposed) return;
+      for (final id in affected) {
+        await store.status(
+          id,
+          'interrupted',
+          error:
+              'Android needed memory. Your save is safe. Tap Extract to retry.',
+        );
+      }
+      await refresh();
+    } finally {
+      if (!_disposed && _foreground) _suspended = false;
+    }
+  }
+
   Future<void> downloadModel() async {
+    if (_deletingModel) throw StateError('Wait for model deletion to finish.');
+    if (compactModelInstalled) return;
     if (processing || lab.busy) {
       throw StateError('Stop extraction before changing the model.');
     }
@@ -422,6 +511,9 @@ class LibraryController extends ChangeNotifier {
     final installed = await download.start();
     if (installed != null && !_disposed) {
       lab.model = installed;
+      lab.selectionManaged = true;
+      lab.error = null;
+      lab.phase = LabPhase.idle;
       notifyListeners();
       unawaited(_queueReadySources());
     }

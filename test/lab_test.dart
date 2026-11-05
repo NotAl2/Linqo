@@ -203,10 +203,38 @@ void main() {
   );
 
   test('oversized input is rejected rather than truncated', () async {
-    await controller.extract('x' * 8001);
+    await controller.extract('x' * 30001);
     expect(runtime.calls, 0);
-    expect(controller.error, contains('8,000'));
+    expect(controller.error, contains('30,000'));
   });
+
+  test(
+    'rejected retry clears the previous result instead of exposing stale facts',
+    () async {
+      final pending = controller.extract('Private ingredient.');
+      runtime.output.add(
+        jsonEncode({
+          'title': 'Previous save',
+          'summary': 'Previous content.',
+          'type': 'general',
+          'facts': [
+            {
+              'label': 'Fact',
+              'value': 'Private ingredient.',
+              'lines': [1],
+            },
+          ],
+        }),
+      );
+      await runtime.output.close();
+      await pending;
+      expect(controller.result, isNotNull);
+      await controller.extract('x' * 30001);
+      expect(controller.result, isNull);
+      expect(controller.report, isNull);
+      expect(controller.rawOutput, isEmpty);
+    },
+  );
 
   testWidgets('phone and tablet layouts support light, dark and large text', (
     tester,
