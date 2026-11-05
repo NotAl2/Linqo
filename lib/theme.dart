@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'ui/motion.dart';
 
 abstract final class LinqoColors {
   static const canvas = Color(0xFFF8F4FF);
@@ -139,6 +140,9 @@ ThemeData linqoTheme(Brightness brightness) {
     borderSide: BorderSide(color: scheme.outlineVariant, width: 1.3),
   );
   return base.copyWith(
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {TargetPlatform.android: LinqoTransitions()},
+    ),
     textTheme: text,
     scaffoldBackgroundColor: dark
         ? const Color(0xFF191121)

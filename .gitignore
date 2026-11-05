@@ -27,4 +27,15 @@ PRODUCT.md
 docs/*
 !docs/RELEASE_REVIEW.md
 !docs/AUTOMATIC_CONTENT.md
+!docs/V081_VERIFICATION.md
 !docs/screenshots/
+
+# Payment service data and private signing material
+billing/var/
+*.private.pem
+node_modules/
+
+# Cloudflare local state and secret files
+.wrangler/
+.dev.vars
+.dev.vars.*

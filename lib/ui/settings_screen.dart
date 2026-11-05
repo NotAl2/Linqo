@@ -8,6 +8,8 @@ import '../library/library_controller.dart';
 import 'components.dart';
 import 'brand.dart';
 import 'backup_section.dart';
+import 'release_settings.dart';
+import 'welcome_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
@@ -366,6 +368,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               BackupSection(controller: controller),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.explore_outlined),
+                title: const Text('A quick tour of Linqo'),
+                subtitle: const Text('Sharing, collections and optional AI'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => openPage(
+                  context,
+                  WelcomeScreen(
+                    controller: controller,
+                    onDone: (_) async {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               const SizedBox(height: 24),
               Card(
                 child: Padding(
@@ -452,6 +472,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
+              const ReleaseSettings(),
             ],
           ),
         ),

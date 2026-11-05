@@ -494,7 +494,9 @@ class LibraryStore {
       throw const FormatException('Use a collection name of 1–40 characters.');
     }
     if (id == null) {
-      return db.insert('collections', {'name': name.trim(), 'color': color});
+      return db.transaction((tx) async {
+        return tx.insert('collections', {'name': name.trim(), 'color': color});
+      });
     }
     await db.update(
       'collections',

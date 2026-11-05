@@ -12,6 +12,9 @@ import 'ui/save_editor.dart';
 import 'ui/brand.dart';
 import 'ui/support_prompt.dart';
 import 'library/support_prompt_policy.dart';
+import 'services/diagnostics.dart';
+import 'ui/welcome_screen.dart';
+import 'ui/settings_screen.dart';
 
 class _SupportNavigation extends NavigatorObserver {
   _SupportNavigation(this.changed);
@@ -23,8 +26,27 @@ class _SupportNavigation extends NavigatorObserver {
       changed();
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Diagnostics.instance.initialize();
+  FlutterError.onError = (details) {
+    Diagnostics.instance.record(
+      'flutter.error',
+      error: details.exception,
+      stack: details.stack,
+      notify: false,
+    );
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    Diagnostics.instance.recordFatal(
+      'dart.uncaught',
+      error: error,
+      stack: stack,
+    );
+    return false;
+  };
+  Diagnostics.instance.record('app.started');
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'Linqo',
@@ -48,10 +70,12 @@ class LinqoApp extends StatefulWidget {
     this.controller,
     this.enableSharing,
     this.enableSupportPrompts,
+    this.enableOnboarding,
   });
   final LibraryController? controller;
   final bool? enableSharing;
   final bool? enableSupportPrompts;
+  final bool? enableOnboarding;
   @override
   State<LinqoApp> createState() => _LinqoAppState();
 }
@@ -67,6 +91,7 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   int _lastSaveEpoch = 0;
   bool _supportPending = false, _supportShown = false, _showingSupport = false;
   bool _foreground = true;
+  bool _onboarding = false;
   late final _supportNavigation = _SupportNavigation(_scheduleSupport);
   bool get _supportEnabled =>
       widget.enableSupportPrompts ?? widget.controller == null;
@@ -103,6 +128,11 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
         c.dispose();
         return;
       }
+      _onboarding =
+          (widget.enableOnboarding ?? widget.controller == null) &&
+          await c.store.preference('onboarding_completed') != '1' &&
+          c.total == 0 &&
+          await c.store.preference('theme') == null;
       controller = c;
       mode = c.theme;
       c.addListener(_themeChanged);
@@ -140,6 +170,7 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   Future<void> _checkShares() async {
     if (!mounted ||
         !_sharing ||
+        _onboarding ||
         controller == null ||
         _showingSupport ||
         _navigator.currentState == null) {
@@ -166,7 +197,8 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
         // A receipt in SQLite makes a crash between Save and ack idempotent.
         if (mounted) await _shares.acknowledge(shared.id);
       }
-    } catch (_) {
+    } catch (e, s) {
+      Diagnostics.instance.record('sharing.failed', error: e, stack: s);
       if (mounted) {
         ScaffoldMessenger.maybeOf(_navigator.currentContext!)?.showSnackBar(
           const SnackBar(
@@ -194,7 +226,9 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
 
   void _scheduleSupport() {
     final c = controller;
-    if (!mounted || !_supportEnabled || c == null || _supportShown) return;
+    if (!mounted || !_supportEnabled || c == null || _supportShown) {
+      return;
+    }
     if (c.supportSaveEpoch != _lastSaveEpoch) {
       _lastSaveEpoch = c.supportSaveEpoch;
       _supportPending = true;
@@ -220,7 +254,8 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
         !_supportPending) {
       return;
     }
-    if (nav.canPop() ||
+    if (_onboarding ||
+        nav.canPop() ||
         _drainingShares ||
         c.processing ||
         c.lab.busy ||
@@ -291,7 +326,38 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
         ? Duration.zero
         : const Duration(milliseconds: 180),
     home: controller != null
-        ? LibraryShell(controller: controller!)
+        ? _onboarding
+              ? WelcomeScreen(
+                  controller: controller!,
+                  onDone: (setup) async {
+                    await controller!.store.setPreference(
+                      'onboarding_completed',
+                      '1',
+                    );
+                    if (!mounted) return;
+                    setState(() => _onboarding = false);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      if (setup) {
+                        _navigator.currentState!
+                            .push<void>(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    SettingsScreen(controller: controller!),
+                              ),
+                            )
+                            .then((_) {
+                              if (mounted && _sharing) {
+                                unawaited(_checkShares());
+                              }
+                            });
+                      } else if (_sharing) {
+                        unawaited(_checkShares());
+                      }
+                    });
+                  },
+                )
+              : LibraryShell(controller: controller!)
         : error == null
         ? const LinqoSplash()
         : Scaffold(

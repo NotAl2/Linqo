@@ -24,7 +24,23 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
-## New in v0.7.0
+## New in v0.8.1
+
+First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
+
+Linqo is unlimited and donation-supported. There is no paid unlock, account, purchase restoration, usage quota or licensing backend in the app. The library, search, notes, backups and optional AI run locally. Fetching captions/previews, downloading a model, manually checking GitHub releases and opening Buy Me a Coffee remain optional online features.
+
+## New in v0.8.0 (development preview)
+
+- A skippable welcome tour, replayable from Settings. v0.8.1 replaces the original clips with native animated tutorial examples and reduced-motion support.
+- Shorter, consistent navigation feedback while keeping library state, local search and extraction independent.
+- **Settings → About & updates → Check for updates** checks GitHub releases on demand, with an optional preview channel. Updates open the trusted GitHub release page for manual installation.
+- Hidden **Local diagnostics**: tap the version number seven times. Opt-in logs stay local, contain event codes/error types/sanitized app stack locations, and can be exported or cleared. No saved captions, URLs, raw error messages, automatic telemetry or uploads are recorded. Native process crashes may not be captured.
+- Stricter model download size/resume validation and stalled-part cancellation, retaining the existing two-thread and memory-release defaults.
+
+The earlier tutorial clips have been removed. v1.0 remains a later optimization and bug-fixing milestone. **Linqo is still in active development.**
+
+## Grounded extraction (v0.7.0)
 
 - Grounded summaries use excerpts from saved content; older summaries and imported backups are re-grounded too.
 - Long sources run in smaller, token-checked parts with visible progress, cancellation and explicit partial-coverage warnings. The original saved text stays intact.
@@ -33,7 +49,7 @@ Screenshots use synthetic demonstration saves; the app starts with your own libr
 
 Validated with **124 host tests**, clean static analysis and physical Redmi Note 7 Pro checks. A 6,119-character article completed all six parts in about **71 seconds** with two CPU threads; a short recipe took about **15–16 seconds**. Missing-file recovery, cancellation, deletion, a fresh checksum-verified download and extraction afterward passed. Tests used a separate library and verified that normal library data and preferences were unchanged. Performance and content coverage still vary by device and provider.
 
-The ARM64 APK is approximately **72.4 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
+The current v0.8.1 ARM64 APK is approximately **72.5 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
 
 ## Install
 
@@ -69,7 +85,7 @@ The [automatic content report](docs/AUTOMATIC_CONTENT.md) and earlier [release r
 
 **Settings → Export saves** writes a portable ZIP to your chosen destination. **Import saves** merges a Linqo backup into the current library; it preserves current settings and does not replace existing saves. Model weights, model selection, transient Android share receipts and cached preview images are excluded. Use Refresh details to fetch missing covers again. Backups are unencrypted and contain your saved text and file copies; keep them private. Version 1 supports up to 10,000 saves, 16 MiB of library text and 512 MiB of file copies. Missing private file copies cause export to fail rather than silently omit them.
 
-Saves and file copies live in private app storage. No Linqo account, hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the donation button opens Buy Me a Coffee externally.
+Saves and file copies live in private app storage. No account is required for the library, and no hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the support button opens Buy Me a Coffee externally. Update checks contact GitHub only on request. Local diagnostics are disabled by default and exported only by the user.
 
 Metadata/content fetching is bounded to two jobs, a ten-second deadline, 1 MiB HTML per response and 700 KiB per image. The thumbnail disk cache is expendable and capped at 16 MiB/80 entries. Browsing uses local cached previews. No login cookies, WebView or JavaScript runtime are used for previews.
 

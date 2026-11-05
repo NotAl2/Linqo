@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:llamadart/llamadart.dart';
 
 import '../domain/extraction.dart';
@@ -111,17 +112,20 @@ class LlamaLocalRuntime implements LocalRuntime, ProgressRuntime {
       final buffer = StringBuffer();
       var first = true;
       try {
-        await for (final chunk in engine.create(
-          messages(part),
-          enableThinking: false,
-          responseFormat: format(part),
-          params: const GenerationParams(
-            maxTokens: RuntimeSettings.maxOutputTokens,
-            temp: 0,
-            topP: 0.9,
-            seed: 42,
-          ),
-        )) {
+        await for (final chunk
+            in engine
+                .create(
+                  messages(part),
+                  enableThinking: false,
+                  responseFormat: format(part),
+                  params: const GenerationParams(
+                    maxTokens: RuntimeSettings.maxOutputTokens,
+                    temp: 0,
+                    topP: 0.9,
+                    seed: 42,
+                  ),
+                )
+                .timeout(const Duration(seconds: 90))) {
           if (_cancelled) break;
           final text = chunk.choices.isEmpty
               ? null
@@ -147,6 +151,7 @@ class LlamaLocalRuntime implements LocalRuntime, ProgressRuntime {
         ExtractionResult.parse(buffer.toString(), part);
         outputs.add(value);
       } catch (error) {
+        engine.cancelGeneration();
         if (_cancelled) return;
         if (outputs.isEmpty) rethrow;
         // Kept private with the extraction for diagnostics, never presented as

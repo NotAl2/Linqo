@@ -1,4 +1,4 @@
-Linqo 0.7.0 — accompanying dependency and native-runtime notices
+Linqo 0.8.1 — accompanying dependency and native-runtime notices
 
 Keep this file with the APK when redistributing it. Optional downloaded models are not included.
 

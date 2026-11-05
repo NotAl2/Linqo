@@ -413,6 +413,10 @@ class ExtractionResult {
           text.codeUnitAt(take - 1) <= 0xDBFF) {
         take--;
       }
+      if (take < text.length) {
+        final word = text.lastIndexOf(' ', take);
+        if (word > take ~/ 2) take = word;
+      }
       if (take <= 0) break;
       excerpts.add(text.substring(0, take));
       remaining -= take;

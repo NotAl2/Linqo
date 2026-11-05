@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../services/diagnostics.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -402,6 +403,7 @@ class LabController extends ChangeNotifier {
       _cancelWatch?.stop();
       runEndRssBytes = ProcessInfo.currentRss;
       _stopTimings();
+      Diagnostics.instance.record('model.$outcome');
       report = RunReport(
         elapsedMs: watch.elapsedMilliseconds,
         firstOutputMs: activeFirstOutputMs ?? firstOutputMs,

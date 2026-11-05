@@ -98,7 +98,7 @@ Future<T?> openPage<T>(BuildContext context, Widget page) =>
         transitionDuration: motionDuration(context),
         reverseTransitionDuration: motionDuration(context),
         transitionsBuilder: (_, animation, _, child) => FadeTransition(
-          opacity: animation,
+          opacity: animation.drive(CurveTween(curve: Curves.easeOutCubic)),
           child: SlideTransition(
             position: Tween(begin: const Offset(0, 0.025), end: Offset.zero)
                 .animate(

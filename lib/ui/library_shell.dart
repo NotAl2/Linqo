@@ -17,19 +17,26 @@ class LibraryShell extends StatefulWidget {
 }
 
 class _LibraryShellState extends State<LibraryShell>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   int destination = 0;
+  late final AnimationController navigationMotion;
   final searchKey = GlobalKey<LibraryBrowserState>();
   LibraryController get c => widget.controller;
   @override
   void initState() {
     super.initState();
+    navigationMotion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 160),
+      value: 1,
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    navigationMotion.dispose();
     super.dispose();
   }
 
@@ -46,7 +53,11 @@ class _LibraryShellState extends State<LibraryShell>
   void didHaveMemoryPressure() => unawaited(c.memoryPressure());
   void navigate(int index) {
     FocusScope.of(context).unfocus();
+    if (index == destination) return;
     setState(() => destination = index);
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      navigationMotion.forward(from: 0);
+    }
     if (index == 2) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => searchKey.currentState?.focusSearch(),
@@ -106,20 +117,25 @@ class _LibraryShellState extends State<LibraryShell>
                         ],
                       ),
                     Expanded(
-                      child: IndexedStack(
-                        index: destination,
-                        children: [
-                          LibraryBrowser(
-                            controller: c,
-                            onSearch: () => navigate(2),
-                          ),
-                          CollectionsView(controller: c),
-                          LibraryBrowser(
-                            key: searchKey,
-                            controller: c,
-                            search: true,
-                          ),
-                        ],
+                      child: FadeTransition(
+                        opacity: navigationMotion.drive(
+                          Tween(begin: .82, end: 1.0),
+                        ),
+                        child: IndexedStack(
+                          index: destination,
+                          children: [
+                            LibraryBrowser(
+                              controller: c,
+                              onSearch: () => navigate(2),
+                            ),
+                            CollectionsView(controller: c),
+                            LibraryBrowser(
+                              key: searchKey,
+                              controller: c,
+                              search: true,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

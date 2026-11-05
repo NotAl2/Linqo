@@ -2,7 +2,7 @@
 
 Linqo's original code is licensed under [Apache-2.0](LICENSE). Dependencies and model files retain their own licenses; the app license does not replace them.
 
-The complete [accompanying license bundle](THIRD_PARTY_LICENSES.txt) is also attached to the v0.7.0 release. Keep it with the APK when redistributing it. It combines this release APK's Flutter-generated notices with the MIT notices for the pinned native llama.cpp/ggml runtime, whose attribution is absent from Flutter's generated in-app list.
+The complete [accompanying license bundle](THIRD_PARTY_LICENSES.txt) is regenerated from the current v0.8.1 build and included in its local release package. Keep it with the APK when redistributing it. It combines this build's Flutter-generated notices with the MIT notices for the pinned native llama.cpp/ggml runtime, whose attribution is absent from Flutter's generated in-app list. Earlier published releases include their corresponding notice bundles.
 
 - **Fredoka** and **Nunito** are bundled under the SIL Open Font License 1.1. Their complete copyright and license notices ship in [assets/fonts/fredoka-OFL.txt](assets/fonts/fredoka-OFL.txt) and [assets/fonts/nunito-OFL.txt](assets/fonts/nunito-OFL.txt).
 - **Flutter/Dart packages and native dependencies:** Flutter assembles their dependency notices into the APK's `NOTICES.Z`. Open **Settings → Open-source licenses** in Linqo to read the notices. Dependency versions are pinned in `pubspec.lock`; native inference uses llamadart and llama.cpp. Redistribution must preserve applicable upstream notices.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.1 — 2026-11-05 (development preview)
+
+- Replace onboarding videos and image decoders with a native Flutter tutorial: short transitions, sample save feedback and collection choices. Retain Skip, replay, reduced-motion support and optional model setup. Remove bundled video/tutorial image assets.
+- Remove the paid-unlock, quota, account and purchase-restoration integration and its cryptography dependency. Keep Linqo unlimited with optional Buy Me a Coffee donations. Set the unused licensing prototype aside outside the app and disable its hosted processing.
+- Keep the local core and existing optional online caption/preview fetching, model download and manual GitHub update checks.
+
+## 0.8.0 — 2026-11-05 (development preview)
+
+- Add a skippable first-start welcome tour, replayable from Settings, with three lightweight Brag/Hyperframes tutorial clips for saving, organizing and optional AI. Respect reduced motion, backgrounding and extraction activity.
+- Refine navigation easing and tab feedback while retaining library state and scroll positions. Keep routine motion short and avoid per-row animation work during extraction.
+- Add manual GitHub release checks, semantic version comparison, a preview channel switch and a trusted release-page action. Never download/install updates silently.
+- Add hidden, opt-in local diagnostics: tap the version seven times. Record bounded event codes, error types and sanitized Linqo stack locations, with export/clear controls and no automatic upload. Native process crashes may not be captured.
+- Harden model downloading with exact pinned byte-count checks, stricter resume validation and bounded buffered writes. Cancel stalled native part streams; keep two CPU threads and on-demand memory release.
+- Prototyped paid unlocking during development; this was removed from the app in 0.8.1. Donations remain optional.
+
 ## 0.7.0 — 2026-11-05 (preview)
 
 - Replace model-written summaries with verified source excerpts selected by line reference. Re-ground existing summaries and backup imports, including the local search index, while preserving user fields.
