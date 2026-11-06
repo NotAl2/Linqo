@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 — 2026-11-06 (development preview)
+
+- Expand the native first-start demos: Share → Linqo → optional extraction → done, and a sample caption becoming a recipe with ingredients, method and stated servings. Keep demonstrations finite, skippable, replayable and paused when inactive or processing.
+- Classify the whole source before model-sized parts; reject publisher controls and author biographies as recipe evidence. Split supported inline recipe captions into original source spans while preserving the full saved caption.
+- Show recipes with readable ingredients and numbered steps, stated serving size, articles with concise bullet highlights, tutorials as ordered instructions and places with their own layout. Remove repetitive per-fact dropdowns; move raw saved content to **View saved source** in the save menu.
+- Remove ink splashes and whole-screen selection fading, use purple selection feedback and retain resolved cover handles across filter changes. Keep the existing compact optional model, two threads and local core.
+
 ## 0.8.1 — 2026-11-05 (development preview)
 
 - Replace onboarding videos and image decoders with a native Flutter tutorial: short transitions, sample save feedback and collection choices. Retain Skip, replay, reduced-motion support and optional model setup. Remove bundled video/tutorial image assets.

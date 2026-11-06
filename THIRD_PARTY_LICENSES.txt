@@ -1,4 +1,4 @@
-Linqo 0.8.1 — accompanying dependency and native-runtime notices
+Linqo 0.8.2 — accompanying dependency and native-runtime notices
 
 Keep this file with the APK when redistributing it. Optional downloaded models are not included.
 
@@ -54,7 +54,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-Flutter-generated dependency notices from this release APK
+Flutter-generated dependency notices
 
 abseil-cpp
 

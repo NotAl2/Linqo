@@ -1,7 +1,7 @@
 name: linqo
 description: A private library with Android sharing and optional on-device extraction.
 publish_to: none
-version: 0.8.1+13
+version: 0.8.2+14
 environment:
   sdk: '>=3.10.7 <4.0.0'
 dependencies:

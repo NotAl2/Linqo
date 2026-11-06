@@ -28,6 +28,7 @@ docs/*
 !docs/RELEASE_REVIEW.md
 !docs/AUTOMATIC_CONTENT.md
 !docs/V081_VERIFICATION.md
+!docs/V082_VERIFICATION.md
 !docs/screenshots/
 
 # Payment service data and private signing material

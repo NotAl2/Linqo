@@ -14,7 +14,7 @@ import 'package:linqo/theme.dart';
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
-  testWidgets('v0.8.1 welcome, clips, settings and hidden diagnostics', (
+  testWidgets('v0.8.2 welcome, clips, settings and hidden diagnostics', (
     tester,
   ) async {
     final path = '${await getDatabasesPath()}/linqo-v080-ui-qa.db';
@@ -70,14 +70,14 @@ void main() {
       await tester.pumpAndSettle();
       await shot('v080-$viewport-settings');
       await tester.scrollUntilVisible(
-        find.text('Linqo 0.8.1'),
+        find.text('Linqo 0.8.2'),
         350,
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pumpAndSettle();
       await shot('v080-$viewport-updates');
       for (var i = 0; i < 7; i++) {
-        await tester.tap(find.text('Linqo 0.8.1'));
+        await tester.tap(find.text('Linqo 0.8.2'));
         await tester.pump(const Duration(milliseconds: 50));
       }
       await tester.pumpAndSettle();

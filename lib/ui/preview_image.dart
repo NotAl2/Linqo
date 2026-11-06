@@ -16,6 +16,9 @@ class SavedPreviewImage extends StatefulWidget {
 }
 
 class _SavedPreviewImageState extends State<SavedPreviewImage> {
+  // Only file handles, not image bytes. Avoid a fallback frame when filters
+  // remount an already decoded cover. Missing/evicted files still use errorBuilder.
+  static final _resolved = <String, File>{};
   late Future<File?> file = PreviewCache.file(widget.name);
   @override
   void didUpdateWidget(SavedPreviewImage oldWidget) {
@@ -26,9 +29,12 @@ class _SavedPreviewImageState extends State<SavedPreviewImage> {
   @override
   Widget build(BuildContext context) => FutureBuilder<File?>(
     future: file,
+    initialData: _resolved[widget.name],
     builder: (context, snapshot) {
       final value = snapshot.data;
       if (value == null) return widget.fallback;
+      _resolved[widget.name] = value;
+      if (_resolved.length > 80) _resolved.remove(_resolved.keys.first);
       return Image.file(
         value,
         fit: BoxFit.cover,

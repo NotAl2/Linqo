@@ -85,11 +85,10 @@ class LlamaLocalRuntime implements LocalRuntime, ProgressRuntime {
       };
     }
 
-    final hinted =
-        source.typeHint ??
-        (source.lines.any((l) => SourceRules.ingredientHeading.hasMatch(l.text))
-            ? 'recipe'
-            : null);
+    final category = SourceRules.classify(source);
+    // Strong source structure is a guardrail. Otherwise let the model choose
+    // its category; parsing still rejects unsupported recipe classifications.
+    final hinted = source.typeHint ?? (category == 'general' ? null : category);
     final plannedSource = SourceDocument(source.text, typeHint: hinted);
     final parts = await planSourceParts(plannedSource, (part) async {
       if (_cancelled) throw const _InferenceCancelled();

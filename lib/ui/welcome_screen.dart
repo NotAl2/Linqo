@@ -213,7 +213,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 }
 
-/// Native examples only. No codecs, timers, network requests or real saves.
+/// Finite, native demonstrations. No network, codecs or real library writes.
 class TutorialScene extends StatefulWidget {
   const TutorialScene({
     super.key,
@@ -227,9 +227,60 @@ class TutorialScene extends StatefulWidget {
   State<TutorialScene> createState() => _TutorialSceneState();
 }
 
-class _TutorialSceneState extends State<TutorialScene> {
-  bool saved = false;
+class _TutorialSceneState extends State<TutorialScene>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController demo = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 4800),
+  );
   String collection = 'Recipes';
+  bool saved = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    sync();
+  }
+
+  @override
+  void didUpdateWidget(TutorialScene old) {
+    super.didUpdateWidget(old);
+    if (old.active != widget.active || old.busy != widget.busy) sync();
+  }
+
+  void sync() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      demo.value = 1;
+      return;
+    }
+    if (!widget.active || widget.busy) {
+      demo.stop();
+      return;
+    }
+    if (demo.value < 1) demo.forward();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      sync();
+    } else {
+      demo.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    demo.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context), colors = Theme.of(context).colorScheme;
@@ -243,118 +294,219 @@ class _TutorialSceneState extends State<TutorialScene> {
     return RepaintBoundary(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: AnimatedContainer(
-          duration: duration,
-          padding: const EdgeInsets.all(24),
+        child: DecoratedBox(
           decoration: BoxDecoration(
             color: colors.primaryContainer,
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.index == 0) ...[
-                AnimatedSwitcher(
-                  duration: duration,
-                  child: Icon(
-                    saved
-                        ? Icons.bookmark_added_rounded
-                        : Icons.ios_share_rounded,
-                    key: ValueKey(saved),
-                    size: 60,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  saved ? 'Saved to Linqo' : 'Sunday pasta',
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: AnimatedBuilder(
+              animation: demo,
+              builder: (context, _) {
+                final stage = saved ? 3 : (demo.value * 4).floor().clamp(0, 3);
+                Widget heading(String value) => Text(
+                  value,
                   style: theme.textTheme.titleLarge,
                   textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Example link · your library stays untouched',
+                );
+                Widget small(String value) => Text(
+                  value,
+                  style: theme.textTheme.bodySmall,
                   textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton.tonalIcon(
-                  onPressed: () => setState(() => saved = !saved),
-                  icon: Icon(
-                    saved ? Icons.replay_rounded : Icons.bookmark_add_outlined,
-                  ),
-                  label: Text(saved ? 'Try again' : 'Try saving'),
-                ),
-              ] else if (widget.index == 1) ...[
-                Icon(
-                  Icons.folder_copy_outlined,
-                  size: 56,
-                  color: colors.onPrimaryContainer,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Give your finds a place',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
+                );
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final name in ['Recipes', 'Weekend plans'])
-                      ChoiceChip(
-                        label: Text(name),
-                        selected: collection == name,
-                        onSelected: (_) => setState(() => collection = name),
+                    if (widget.index == 0) ...[
+                      Row(
+                        children: [
+                          for (final entry in [
+                            Icons.ios_share_rounded,
+                            Icons.bookmark_rounded,
+                            Icons.auto_awesome_rounded,
+                            Icons.check_circle_rounded,
+                          ].indexed) ...[
+                            if (entry.$1 > 0)
+                              Expanded(
+                                child: Divider(
+                                  color: entry.$1 <= stage
+                                      ? colors.primary
+                                      : colors.outlineVariant,
+                                ),
+                              ),
+                            AnimatedContainer(
+                              duration: duration,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: entry.$1 == stage
+                                    ? colors.primary
+                                    : colors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                entry.$2,
+                                size: 24,
+                                color: entry.$1 == stage
+                                    ? colors.onPrimary
+                                    : colors.primary,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
+                      const SizedBox(height: 22),
+                      AnimatedSwitcher(
+                        duration: duration,
+                        child: Column(
+                          key: ValueKey(stage),
+                          children: [
+                            heading(
+                              [
+                                'Share a good find',
+                                'Choose Linqo & save',
+                                'Finding the useful bits',
+                                'Saved to Linqo',
+                              ][stage],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              [
+                                'Sunday pasta · a recipe reel',
+                                'The link is saved right away.',
+                                'Optional on-device summary…',
+                                'Sunday pasta\nServes 2 · ingredients & steps',
+                              ][stage],
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      small(
+                        'Demo · extraction needs the optional model and available source text.',
+                      ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () {
+                            setState(() => saved = !saved);
+                            if (saved) {
+                              demo.stop();
+                            } else if (!reduced) {
+                              demo.forward(from: 0);
+                            }
+                          },
+                          icon: Icon(
+                            saved
+                                ? Icons.replay_rounded
+                                : Icons.bookmark_add_outlined,
+                          ),
+                          label: Text(saved ? 'Try again' : 'Try saving'),
+                        ),
+                      ),
+                    ] else if (widget.index == 1) ...[
+                      Icon(
+                        Icons.folder_copy_outlined,
+                        size: 56,
+                        color: colors.onPrimaryContainer,
+                      ),
+                      const SizedBox(height: 16),
+                      heading('Give your finds a place'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        children: [
+                          for (final name in ['Recipes', 'Weekend plans'])
+                            ChoiceChip(
+                              label: Text(name),
+                              selected: collection == name,
+                              onSelected: (_) =>
+                                  setState(() => collection = name),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Sunday pasta → $collection',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      small(
+                        'Find it again with a collection or a quick search.',
+                      ),
+                    ] else ...[
+                      heading(
+                        stage < 2
+                            ? 'A caption, full of good stuff'
+                            : 'A recipe you can use',
+                      ),
+                      const SizedBox(height: 16),
+                      AnimatedSize(
+                        duration: duration,
+                        alignment: Alignment.topCenter,
+                        child: AnimatedSwitcher(
+                          duration: duration,
+                          child: Align(
+                            key: ValueKey(stage < 2),
+                            alignment: Alignment.centerLeft,
+                            child: stage < 2
+                                ? Text(
+                                    '“Sunday pasta! Serves 2. Ingredients: 200 g pasta, 2 tomatoes, 1 tbsp olive oil. Boil pasta for 10 minutes. Chop tomatoes, toss with oil, then mix with the pasta.”',
+                                    style: theme.textTheme.bodyLarge,
+                                  )
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Sunday pasta · Serves 2',
+                                        style: theme.textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Ingredients',
+                                        style: theme.textTheme.titleSmall,
+                                      ),
+                                      const Text(
+                                        '• 200 g pasta\n• 2 tomatoes\n• 1 tbsp olive oil',
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Steps',
+                                        style: theme.textTheme.titleSmall,
+                                      ),
+                                      const Text(
+                                        '1. Boil pasta for 10 minutes.\n2. Chop tomatoes, toss with oil, then mix with the pasta.',
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      small(
+                        'Illustrative demo · no model runs during the tour.',
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          if (reduced) {
+                            demo.value = 1;
+                          } else {
+                            demo.forward(from: 0);
+                          }
+                        },
+                        icon: const Icon(Icons.replay_rounded),
+                        label: const Text('Replay example'),
+                      ),
+                    ],
                   ],
-                ),
-                const SizedBox(height: 16),
-                AnimatedSwitcher(
-                  duration: duration,
-                  child: Text(
-                    'Sunday pasta → $collection',
-                    key: ValueKey(collection),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Search brings saved titles and notes back in a moment.',
-                  textAlign: TextAlign.center,
-                ),
-              ] else ...[
-                Icon(
-                  Icons.auto_awesome_outlined,
-                  size: 56,
-                  color: colors.onPrimaryContainer,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Useful details, privately',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Saved text: “Simmer for 10 minutes.”',
-                  textAlign: TextAlign.center,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Icon(Icons.arrow_downward_rounded),
-                ),
-                const Text(
-                  'Summary excerpt: “Simmer for 10 minutes.”',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Example only · no model runs during the tour.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
+                );
+              },
+            ),
           ),
         ),
       ),

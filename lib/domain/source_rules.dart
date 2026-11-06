@@ -9,6 +9,99 @@ class NamedSourcePlace {
 /// Conservative structural recovery, not invented recipe/place knowledge.
 /// Unrecognized source material remains available for review.
 class SourceRules {
+  /// Classify the whole save before splitting it into model-sized parts.
+  /// Generic imperatives ("Add a preferred source") are not cooking evidence.
+  static String classify(SourceDocument source) {
+    final structure = recipeLines(source);
+    if (looksLikeRecipe(source.text) ||
+        structure.ingredients.isNotEmpty ||
+        (_food.hasMatch(source.text) && structure.steps.isNotEmpty)) {
+      return 'recipe';
+    }
+    if (RegExp(
+          r'^Place(?: name from saved link)?:',
+          multiLine: true,
+          caseSensitive: false,
+        ).hasMatch(source.text) ||
+        namedPlaces(source).length >= 2) {
+      return 'place';
+    }
+    if (RegExp(
+          r'^(?:how to |installation|setup guide|instructions:|steps:)',
+          multiLine: true,
+          caseSensitive: false,
+        ).hasMatch(source.text) &&
+        RegExp(
+          r'\b(?:click|install|open|select|run|tap|connect|configure)\b',
+          caseSensitive: false,
+        ).hasMatch(source.text)) {
+      return 'tutorial';
+    }
+    return 'general';
+  }
+
+  static final _food = RegExp(
+    r'\b(?:flour|sugar|salt|pepper|onion|garlic|tomato|pasta|rice|chicken|egg|eggs|butter|milk|cream|spinach|potato|potatoes|cheese|yogurt|yoghurt|lentils|chickpeas|olive oil|baking powder|oats|banana|chocolate|cumin|paprika|tofu|salmon|bread|lemon)\b',
+    caseSensitive: false,
+  );
+
+  static bool looksLikeRecipe(String text) =>
+      _food.hasMatch(text) &&
+      (RegExp(r'\bingredients?\s*:', caseSensitive: false).hasMatch(text) ||
+          (RegExp(
+                r'\b\d+\s*(?:g|kg|ml|cups?|tbsp|tsp|tablespoons?|teaspoons?)\b',
+                caseSensitive: false,
+              ).hasMatch(text) &&
+              RegExp(
+                r'\b(?:boil|bake|simmer|fry|roast|whisk|knead|chop|cook)\b',
+                caseSensitive: false,
+              ).hasMatch(text)));
+
+  /// Split compact recipe captions into source spans, never generated prose.
+  /// All selected spans remain findable in the untouched saved caption.
+  static List<String> recipeSegments(String text) {
+    if (!looksLikeRecipe(text)) return text.split('\n');
+    final separated = text
+        .replaceAllMapped(RegExp(r'(?<=[.!?])\s+(?=[A-Z0-9])'), (_) => '\n')
+        .replaceAllMapped(
+          RegExp(
+            r'\b(Ingredients?\s*:|Method\s*:|Instructions?\s*:|Directions?\s*:)',
+            caseSensitive: false,
+          ),
+          (m) => '\n${m[0]}\n',
+        );
+    final lines = <String>[];
+    var ingredients = false;
+    for (final part in separated.split('\n')) {
+      final value = part.trim();
+      if (ingredientHeading.hasMatch(value)) {
+        ingredients = true;
+        lines.add(value);
+        continue;
+      }
+      if (methodHeading.hasMatch(value) || isPreparationText(value)) {
+        ingredients = false;
+      }
+      lines.addAll(ingredients ? value.split(RegExp(r',\s+')) : [value]);
+    }
+    return lines;
+  }
+
+  /// Exclude publisher controls, author bios and engagement prompts, including
+  /// old saved content; preserve the original body for editing/source review.
+  static bool isNoise(String value) {
+    final text = value.trim();
+    return isSocialFooter(text) ||
+        RegExp(
+          r'^(?:(?:shared text|fetched content|follow|followed|thread|advertisement|read more|related articles|about the author)\s*:?|\d+|add (?:.+ on google|as (?:a )?preferred source)|follow on google discover|screenshot by .+|.{1,60} / MakeUseOf|(?:sign|log) in(?: to .*)?|subscribe(?: to .*)?)$',
+          caseSensitive: false,
+        ).hasMatch(text) ||
+        RegExp(
+          r'\b(?:is a .{0,65}graduate (?:from|of)|holds a .{0,50}degree|currently writes for|as a staff writer|combines (?:his|her|their|deep) .{0,35}(?:knowledge|technical)|covering cybersecurity, gaming)\b',
+          caseSensitive: false,
+        ).hasMatch(text);
+  }
+
   static String? articleHint(SourceDocument source) =>
       recipeLines(source).ingredients.isEmpty && namedPlaces(source).isEmpty
       ? 'general'
@@ -35,12 +128,15 @@ class SourceRules {
   ) {
     final ingredients = <int>{};
     final steps = <int>{};
+    final culinary =
+        _food.hasMatch(source.text) ||
+        source.lines.any((line) => ingredientHeading.hasMatch(line.text));
     var section = '';
     for (final line in source.lines) {
       final text = line.text.replaceFirst(_listPrefix, '');
       // Social captions often end an ingredient list with creator credits,
       // hashtag blocks and separator dots rather than a new section heading.
-      if (_isSocialFooter(text)) {
+      if (isNoise(text)) {
         section = '';
         continue;
       }
@@ -58,14 +154,17 @@ class SourceRules {
         if (text.substring(method.end).trim().isNotEmpty) steps.add(line.id);
         continue;
       }
-      if (_englishAction.hasMatch(text) || _hindiAction.hasMatch(text)) {
+      if (culinary &&
+          (_englishAction.hasMatch(text) || _hindiAction.hasMatch(text))) {
         steps.add(line.id);
         section = 'steps';
       } else if (_isOtherSection(text)) {
         section = '';
       } else if (section == 'ingredients') {
         ingredients.add(line.id);
-      } else if (section == 'steps' && _listPrefix.hasMatch(line.text)) {
+      } else if (culinary &&
+          section == 'steps' &&
+          _listPrefix.hasMatch(line.text)) {
         steps.add(line.id);
       }
     }
@@ -99,7 +198,7 @@ class SourceRules {
   /// reject marketing prose and creator credits selected by a small model.
   static bool isPreparationText(String original) {
     final text = original.replaceFirst(_listPrefix, '');
-    if (isSocialFooter(text) || isSectionHeading(text)) return false;
+    if (isNoise(text) || isSectionHeading(text)) return false;
     final unprefixed = text.replaceFirst(
       RegExp(
         r'^(?:then|next|finally|meanwhile|now)\s*[:,]?\s+',

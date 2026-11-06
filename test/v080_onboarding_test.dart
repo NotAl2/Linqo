@@ -68,6 +68,7 @@ void main() {
       await tester.tap(find.text('Take a quick look'));
       await tester.pumpAndSettle();
       expect(find.text('Try saving'), findsOneWidget);
+      await tester.ensureVisible(find.text('Try saving'));
       await tester.tap(find.text('Try saving'));
       await tester.pumpAndSettle();
       expect(find.text('Saved to Linqo'), findsOneWidget);
@@ -91,7 +92,7 @@ void main() {
     );
     expect(find.text('Local diagnostics'), findsNothing);
     for (var i = 0; i < 7; i++) {
-      await tester.tap(find.text('Linqo 0.8.1'));
+      await tester.tap(find.text('Linqo 0.8.2'));
       await tester.pump(const Duration(milliseconds: 50));
     }
     await tester.pumpAndSettle();

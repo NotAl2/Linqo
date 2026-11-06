@@ -12,6 +12,7 @@ import 'components.dart';
 import 'save_editor.dart';
 import 'settings_screen.dart';
 import 'preview_image.dart';
+import 'extracted_details.dart';
 
 class SaveDetail extends StatelessWidget {
   const SaveDetail({super.key, required this.controller, required this.id});
@@ -61,7 +62,38 @@ class SaveDetail extends StatelessWidget {
               ),
               PopupMenuButton<String>(
                 onSelected: (value) async {
-                  if (value == 'edit') {
+                  if (value == 'source') {
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      builder: (context) => DraggableScrollableSheet(
+                        expand: false,
+                        initialChildSize: .72,
+                        minChildSize: .4,
+                        maxChildSize: .95,
+                        builder: (context, scroll) => SingleChildScrollView(
+                          controller: scroll,
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Saved source',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 16),
+                              SelectableText(
+                                item.body.isEmpty
+                                    ? 'No source text is available yet.'
+                                    : item.body,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  } else if (value == 'edit') {
                     await openPage(
                       context,
                       SaveEditor(controller: controller, item: item),
@@ -111,6 +143,10 @@ class SaveDetail extends StatelessWidget {
                   }
                 },
                 itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'source',
+                    child: Text('View saved source'),
+                  ),
                   PopupMenuItem(
                     value: 'edit',
                     enabled: !busy,
@@ -285,7 +321,13 @@ class SaveDetail extends StatelessWidget {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'The useful details',
+                                    result?.type == 'recipe'
+                                        ? 'Your recipe'
+                                        : result?.type == 'place'
+                                        ? 'Places & details'
+                                        : result?.type == 'tutorial'
+                                        ? 'How to'
+                                        : 'Key takeaways',
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleLarge,
@@ -295,83 +337,7 @@ class SaveDetail extends StatelessWidget {
                             ),
                             const SizedBox(height: 16),
                             if (result != null) ...[
-                              const Text(
-                                'Summary · excerpts from your saved text',
-                              ),
-                              const SizedBox(height: 8),
-                              SelectableText(
-                                result.summary,
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                              if (result.isPartial) ...[
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Needs a quick review',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                for (final warning in result.warnings)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(warning),
-                                  ),
-                              ],
-                              const SizedBox(height: 12),
-                              for (final fact in result.facts)
-                                ExpansionTile(
-                                  tilePadding: EdgeInsets.zero,
-                                  title: Text(
-                                    fact.label,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
-                                  ),
-                                  subtitle: Text(
-                                    fact.value,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                        child: SelectableText(
-                                          fact.lineIds
-                                              .map(
-                                                (line) =>
-                                                    '[$line] ${item.extractedFrom.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).elementAt(line - 1)}',
-                                              )
-                                              .join('\n'),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              if (result.additionalSource.isNotEmpty)
-                                ExpansionTile(
-                                  tilePadding: EdgeInsets.zero,
-                                  title: const Text('More from the source'),
-                                  children: [
-                                    for (final line in result.additionalSource)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 8,
-                                        ),
-                                        child: SelectableText(
-                                          '[${line.id}] ${line.text}',
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Generated locally. Check the source before relying on a detail.',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
+                              ExtractedDetails(result: result),
                             ] else
                               AnimatedBuilder(
                                 animation: controller.lab,
@@ -463,55 +429,16 @@ class SaveDetail extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                     ],
-                    const SizedBox(height: 28),
-                    Text(
-                      item.kind == SaveKind.note
-                          ? 'Your note'
-                          : 'Content for extraction',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    if (item.body.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          sourceContentLabel(
-                            item.contentKind,
-                            item.contentStatus,
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                    if (item.kind == SaveKind.note) ...[
+                      const SizedBox(height: 28),
+                      Text(
+                        'Your note',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    if (item.body.isNotEmpty)
+                      const SizedBox(height: 12),
                       SelectableText(
                         item.body,
                         style: Theme.of(context).textTheme.bodyLarge,
-                      )
-                    else ...[
-                      Text(
-                        item.contentStatus == 'pending'
-                            ? 'Fetching public captions or page text…'
-                            : 'This provider did not expose usable public text. You can retry or add text yourself. A cover image is not a transcript.',
-                      ),
-                      if (item.url.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () => controller.enrichPreview(
-                            item.id,
-                            item.url,
-                            item.title,
-                          ),
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry content fetch'),
-                        ),
-                      TextButton.icon(
-                        onPressed: busy
-                            ? null
-                            : () => openPage(
-                                context,
-                                SaveEditor(controller: controller, item: item),
-                              ),
-                        icon: const Icon(Icons.edit_note_rounded),
-                        label: const Text('Add caption or transcript'),
                       ),
                     ],
                     if (item.url.isNotEmpty) ...[

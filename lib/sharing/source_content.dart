@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
 import 'shared_content.dart';
+import '../domain/source_rules.dart';
 
 /// Public page content only. No scripts, login, transcript or media download.
 /// Runs with the metadata parser on its worker isolate.
@@ -253,7 +254,7 @@ String _nodeText(Node node) {
   if (copy is Element || copy is DocumentFragment) {
     final elements = copy is Element
         ? copy.querySelectorAll(
-            'script, style, noscript, nav, footer, header, aside, form, dialog, button, svg, iframe, .CaptionUsername, .CaptionComments, [hidden], [aria-hidden="true"], [role="button"], [role="navigation"], .comments, .related-posts, .cookie-banner, .valnet-threads, [data-component="threads"]',
+            'script, style, noscript, nav, footer, header, aside, form, dialog, button, svg, iframe, .CaptionUsername, .CaptionComments, [hidden], [aria-hidden="true"], [role="button"], [role="navigation"], .comments, .related-posts, .cookie-banner, .valnet-threads, [data-component="threads"], .author-bio, .author-description, .bio, [itemprop="author"], [class*="preferred-source"], [class*="google-add"]',
           )
         : (copy as DocumentFragment).querySelectorAll(
             'script, style, noscript, iframe',
@@ -306,7 +307,10 @@ String _nodeText(Node node) {
   }
 
   visit(copy);
-  return cleanContentText(out.toString(), 60000);
+  return cleanContentText(
+    out.toString(),
+    60000,
+  ).split('\n').where((line) => !SourceRules.isNoise(line)).join('\n').trim();
 }
 
 Map? _jsonObject(String text, int start) {

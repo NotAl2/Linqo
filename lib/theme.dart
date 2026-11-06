@@ -140,6 +140,10 @@ ThemeData linqoTheme(Brightness brightness) {
     borderSide: BorderSide(color: scheme.outlineVariant, width: 1.3),
   );
   return base.copyWith(
+    splashFactory: NoSplash.splashFactory,
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+    hoverColor: scheme.primary.withValues(alpha: .04),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {TargetPlatform.android: LinqoTransitions()},
     ),
@@ -192,6 +196,7 @@ ThemeData linqoTheme(Brightness brightness) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        overlayColor: Colors.transparent,
         minimumSize: const Size(48, 54),
         padding: const EdgeInsets.symmetric(horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
@@ -200,6 +205,7 @@ ThemeData linqoTheme(Brightness brightness) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        overlayColor: Colors.transparent,
         minimumSize: const Size(48, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         side: BorderSide(color: scheme.outline),
@@ -208,16 +214,29 @@ ThemeData linqoTheme(Brightness brightness) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
+        overlayColor: Colors.transparent,
         minimumSize: const Size(48, 48),
         textStyle: text.labelLarge,
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        overlayColor: Colors.transparent,
+      ),
     ),
     chipTheme: base.chipTheme.copyWith(
+      color: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? scheme.primaryContainer
+            : scheme.surface,
+      ),
+      iconTheme: IconThemeData(color: scheme.primary),
+      surfaceTintColor: Colors.transparent,
+      pressElevation: 0,
       backgroundColor: scheme.surface,
       selectedColor: scheme.primaryContainer,
+      checkmarkColor: scheme.primary,
       side: BorderSide(color: scheme.outlineVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       labelStyle: text.labelLarge?.copyWith(color: scheme.onSurface),
@@ -231,6 +250,7 @@ ThemeData linqoTheme(Brightness brightness) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
     navigationBarTheme: NavigationBarThemeData(
+      overlayColor: WidgetStatePropertyAll(Colors.transparent),
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,

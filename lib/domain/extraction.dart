@@ -11,8 +11,9 @@ class EvidenceLine {
 class SourceDocument {
   factory SourceDocument.segmented(String text, {String? typeHint}) {
     final parts = <String>[];
-    for (var line in text.split('\n')) {
+    for (var line in SourceRules.recipeSegments(text)) {
       line = line.trim();
+      if (SourceRules.isNoise(line)) continue;
       while (line.length > 240) {
         var cut = line.lastIndexOf(' ', 240);
         if (cut < 120) cut = 240;
@@ -58,9 +59,16 @@ class ExtractedFact {
 }
 
 class RecipeDetails {
-  const RecipeDetails({required this.ingredients, required this.steps});
+  const RecipeDetails({
+    required this.ingredients,
+    required this.steps,
+    this.servings,
+  });
   final List<ExtractedFact> ingredients;
   final List<ExtractedFact> steps;
+
+  /// Exact source span only; missing yields are never estimated.
+  final String? servings;
 }
 
 class PlaceEntity {
@@ -224,6 +232,12 @@ class ExtractionResult {
         structural.ingredients.isNotEmpty &&
         structural.steps.isNotEmpty;
     if (explicitRecipe) type = 'recipe';
+    if (type == 'recipe' &&
+        source.typeHint == null &&
+        SourceRules.classify(source) != 'recipe') {
+      type = 'general';
+      detailIds.addAll({...ingredientIds, ...stepIds});
+    }
     // Typed place selections with no recipe evidence override an inconsistent
     // small-model enum. Do not reinterpret a real recipe that mentions a venue.
     if (!explicitRecipe &&
@@ -246,6 +260,13 @@ class ExtractionResult {
       type = source.typeHint!;
       if (type == 'general') detailIds.addAll({...ingredientIds, ...stepIds});
     }
+    ingredientIds.removeWhere(
+      (id) => SourceRules.isNoise(source.lines[id - 1].text),
+    );
+    stepIds.removeWhere((id) => SourceRules.isNoise(source.lines[id - 1].text));
+    detailIds.removeWhere(
+      (id) => SourceRules.isNoise(source.lines[id - 1].text),
+    );
     if (type == 'recipe') {
       ingredientIds.addAll(structural.ingredients);
       stepIds.addAll(structural.steps);
@@ -335,6 +356,7 @@ class ExtractionResult {
     ];
     final covered = facts.expand((fact) => fact.lineIds).toSet();
     for (final fact in legacy) {
+      if (SourceRules.isNoise(fact.value)) continue;
       if (fact.lineIds.every((id) => covered.contains(id))) continue;
       facts.add(fact);
       covered.addAll(fact.lineIds);
@@ -343,6 +365,7 @@ class ExtractionResult {
         .where(
           (line) =>
               !covered.contains(line.id) &&
+              !SourceRules.isNoise(line.text) &&
               !(line.id == 1 &&
                   source.lines.length > 1 &&
                   !SourceRules.ingredientHeading.hasMatch(line.text) &&
@@ -380,7 +403,14 @@ class ExtractionResult {
       type: type,
       facts: facts,
       recipe: type == 'recipe'
-          ? RecipeDetails(ingredients: ingredients, steps: steps)
+          ? RecipeDetails(
+              ingredients: ingredients,
+              steps: steps,
+              servings: RegExp(
+                r'\b(?:serves\s*:?\s*\d+(?:\s*[–-]\s*\d+)?|servings?\s*[:：]\s*[^\n.]{1,45}|(?:yield|makes)\s*:?\s*\d+[^\n.]{0,30})',
+                caseSensitive: false,
+              ).firstMatch(source.text)?.group(0),
+            )
           : null,
       places: verifiedPlaces,
       warnings: warnings,
@@ -402,8 +432,7 @@ class ExtractionResult {
       ).hasMatch(text)) {
         continue;
       }
-      if (SourceRules.isSocialFooter(text) ||
-          SourceRules.isSectionHeading(text)) {
+      if (SourceRules.isNoise(text) || SourceRules.isSectionHeading(text)) {
         continue;
       }
       var take = text.length < remaining ? text.length : remaining;
@@ -431,7 +460,7 @@ const extractionInstructions =
 Return schema_version 3, a title and a type. Select up to THREE useful summary_lines by line NUMBER; never write a summary. Extraction supports English sources.
 For recipes, ingredient_lines must identify ALL ingredient lines; step_lines must identify ALL preparation, cooking, timing and serving lines, in source order. Return line NUMBERS, never rewrite ingredient or step text.
 For places, places must contain the exact names of EACH business, venue or attraction, with its source line numbers. Prefer the actual venue name, not just its surrounding area. Keep names exactly as written.
-For tutorials/general notes, select useful detail_lines. Unused arrays must be empty.
+For articles/general notes, select up to THREE distinct key takeaways in summary_lines, prioritizing the main conclusions and practical details over titles or author bios. For tutorials, select ordered actionable instructions in detail_lines. Unused arrays must be empty. A tech article is general, not a recipe: add-source buttons are not preparation steps.
 Never invent names, ingredients, quantities, addresses, instructions or references. Do not copy the title into a fact. Ignore navigation, creator promotions and social counters.''';
 
 const _lineArray = <String, dynamic>{

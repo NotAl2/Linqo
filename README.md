@@ -24,6 +24,14 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
+## New in v0.8.2 (development preview)
+
+The native tutorial now demonstrates **Share → Linqo → optional extraction → done**, plus a sample caption becoming an organized recipe. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. The examples are local animations; they do not run a model or create real saves. Saves use content-specific reading layouts: ingredients, numbered steps and stated servings for recipes; concise bullet highlights for articles; ordered instructions for tutorials; and place details. Raw saved text is available through **⋮ → View saved source** or the editor instead of a long extraction-input section. Missing quantities and serving sizes are never estimated.
+
+Whole-source classification and publisher-clutter filtering reduce cases where article controls become recipe steps. Supported inline recipe captions are separated into grounded source spans. The compact optional model and two-thread default remain unchanged; classification and provider coverage are still best effort. Selection feedback no longer uses an ink splash or fades the entire screen, and Favourites uses a plain heart instead of an overlapping animated checkmark.
+
+Verification includes a 139-test host regression run, 19 final targeted UI checks, clean static analysis and real Redmi Note 7 Pro extraction checks. Four short synthetic examples took approximately **15–17 seconds each** at two threads; the recipe retained its three ingredients, three steps and stated servings. These timings are fixture-specific, not a guarantee for longer content. See the [v0.8.2 verification report](docs/V082_VERIFICATION.md).
+
 ## New in v0.8.1
 
 First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
@@ -49,7 +57,7 @@ The earlier tutorial clips have been removed. v1.0 remains a later optimization 
 
 Validated with **124 host tests**, clean static analysis and physical Redmi Note 7 Pro checks. A 6,119-character article completed all six parts in about **71 seconds** with two CPU threads; a short recipe took about **15–16 seconds**. Missing-file recovery, cancellation, deletion, a fresh checksum-verified download and extraction afterward passed. Tests used a separate library and verified that normal library data and preferences were unchanged. Performance and content coverage still vary by device and provider.
 
-The current v0.8.1 ARM64 APK is approximately **72.5 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
+The current v0.8.2 ARM64 APK is approximately **72.6 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
 
 ## Install
 

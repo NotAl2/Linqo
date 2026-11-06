@@ -55,9 +55,6 @@ class _LibraryShellState extends State<LibraryShell>
     FocusScope.of(context).unfocus();
     if (index == destination) return;
     setState(() => destination = index);
-    if (!MediaQuery.disableAnimationsOf(context)) {
-      navigationMotion.forward(from: 0);
-    }
     if (index == 2) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => searchKey.currentState?.focusSearch(),
@@ -118,9 +115,7 @@ class _LibraryShellState extends State<LibraryShell>
                       ),
                     Expanded(
                       child: FadeTransition(
-                        opacity: navigationMotion.drive(
-                          Tween(begin: .82, end: 1.0),
-                        ),
+                        opacity: const AlwaysStoppedAnimation(1),
                         child: IndexedStack(
                           index: destination,
                           children: [
@@ -505,9 +500,13 @@ class LibraryBrowserState extends State<LibraryBrowser> {
                           const SizedBox(width: 8),
                           FilterChip(
                             label: const Text('Favourites'),
-                            avatar: const Icon(
-                              Icons.favorite_border_rounded,
+                            showCheckmark: false,
+                            avatar: Icon(
+                              favorites
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
                               size: 17,
+                              color: theme.colorScheme.primary,
                             ),
                             selected: favorites,
                             onSelected: (value) =>
@@ -588,7 +587,7 @@ class LibraryBrowserState extends State<LibraryBrowser> {
                                   _card(items[index], false),
                             ),
                     ),
-                  if (loading)
+                  if (loading && items.isEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
