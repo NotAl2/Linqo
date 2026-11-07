@@ -36,6 +36,10 @@ Planned one-time tiers: **Free: 50 saves / 5 collections; XL US$5: 150 / 30; XXL
 
 See [cloud setup](cloud/README.md), [privacy](policies/PRIVACY.md), [purchases](policies/PURCHASES.md) and [private training workflow](tools/training/README.md). Model fine-tuning runs manually on separately reviewed data; no model improvement is claimed from merely collecting samples.
 
+Public [Linqo information](https://linqo-app-notal2.web.app/), [privacy](https://linqo-app-notal2.web.app/privacy) and [support](https://linqo-app-notal2.web.app/support) pages are hosted on Firebase Spark for OAuth preparation. See the [production setup checklist](docs/PRODUCTION_SETUP.md) for owner console steps, current Drive test coverage and Razorpay onboarding prerequisites. Publishing the pages does not mean Google has approved the OAuth brand or that purchases are activated.
+
+Contribution uploads are paused in both this preview's client and backend, including previously stored consent. Google account information and Drive backup data are excluded from training; contribution provenance/consent review must pass before a future build enables that separate feature.
+
 ### Published v0.8.3
 
 - **Weekly update reminders:** when you open or return to Linqo, it checks GitHub at most once per week after successful checks. A popup appears only for a newer version, on a quiet library screen. **Later** snoozes it for a week. Offline failures stay silent and retry on a later visit after a one-day backoff. **Settings → About & updates → Check for updates weekly** turns this off; manual checks remain available. No background service, automatic APK download or silent installation is used.

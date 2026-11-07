@@ -91,7 +91,9 @@ class CloudServices extends ChangeNotifier {
       await store.setPreference('last_cloud_account', uid);
       _tier = await verifier.restore(store, uid);
       driveEnabled = await store.preference('drive_enabled_$uid') == '1';
-      contributions = await store.preference('contribute_$uid') == '1';
+      contributions =
+          CloudConfig.contributionsEnabled &&
+          await store.preference('contribute_$uid') == '1';
       lastBackup = await store.preference('drive_success_$uid');
     } else {
       lastBackup = null;
@@ -186,6 +188,11 @@ class CloudServices extends ChangeNotifier {
     driveEnabled = enabled;
   });
   Future<void> setContributions(bool enabled) async {
+    if (enabled && !CloudConfig.contributionsEnabled) {
+      throw StateError(
+        'Contributions are paused in this preview. No source samples will be uploaded.',
+      );
+    }
     final uid = identity.uid;
     if (uid == null) {
       throw StateError('Sign in before changing contribution consent.');
@@ -217,7 +224,11 @@ class CloudServices extends ChangeNotifier {
     String category,
     String model,
   ) {
-    if (!contributions || identity.uid == null) return;
+    if (!CloudConfig.contributionsEnabled ||
+        !contributions ||
+        identity.uid == null) {
+      return;
+    }
     _sample = ContributionSample.fromSave(
       item,
       source,
@@ -277,7 +288,8 @@ class CloudServices extends ChangeNotifier {
             identity.uid != uid) {
           return;
         }
-        if (_sample != null &&
+        if (CloudConfig.contributionsEnabled &&
+            _sample != null &&
             contributions &&
             _sampleOwner == uid &&
             CloudConfig.backendReady) {
@@ -380,7 +392,12 @@ class CloudServices extends ChangeNotifier {
     try {
       status = 'Downloading and checking your backup…';
       _changed();
-      final file = await drive.download(snapshot, work);
+      final file = await drive.download(
+        snapshot,
+        work,
+        allowed: () =>
+            !_disposed && uid == identity.uid && foreground && idle(),
+      );
       if (uid != identity.uid || !foreground || !idle()) {
         throw StateError(
           'Restore paused before changing the library. Try again when idle.',

@@ -88,7 +88,21 @@ void main() {
       );
       try {
         await cloud.initialize();
-        expect(cloud.contributions, true);
+        expect(cloud.contributions, false);
+        await expectLater(
+          cloud.setContributions(true),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('paused in this preview'),
+            ),
+          ),
+        );
+        expect(
+          await store.preference('contribute_a'),
+          '1',
+        ); // Rejected enabling changed no stored consent.
         await expectLater(cloud.setContributions(false), throwsStateError);
         expect(cloud.contributions, false);
         expect(await store.preference('contribute_a'), '0');

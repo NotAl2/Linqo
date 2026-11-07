@@ -13,6 +13,9 @@ class CloudConfig {
   // Turn on only for a build that passed real payment/restore/refund acceptance.
   static const paidLimits = bool.fromEnvironment('LINQO_PAID_LIMITS_ENABLED');
   static const checkout = bool.fromEnvironment('LINQO_CHECKOUT_ENABLED');
+  // Enable only after Google-data provenance and consent review. Rejecting an
+  // upload on the server alone does not prevent source text leaving the phone.
+  static const contributionsEnabled = false;
   static bool get identityReady => [
     projectId,
     apiKey,

@@ -13,6 +13,8 @@ Development preview, not a verified live checkout. No Firebase Functions, Firest
 
 ## Finish setup without a paid infrastructure plan
 
+The public OAuth homepage/privacy/support pages are deployed on `https://linqo-app-notal2.web.app/`. The [production setup checklist](../docs/PRODUCTION_SETUP.md) gives exact Branding/Audience/Data Access steps and records the remaining live Drive and merchant checks. OAuth publishing/brand verification still needs the owner's console confirmation; Razorpay needs truthful business-type onboarding and approved payment methods.
+
 1. Create a Firebase project on **Spark**, without Analytics, Identity Platform upgrades, Firestore, Storage or billing. Add Android app `dev.linqo.linqo`; enable Google in Authentication. Configure OAuth Android SHA-1/SHA-256 for each signing certificate used. Create/record the Web OAuth client ID for Google Sign-In's `serverClientId`.
 2. Enable Google Drive API in that same Google Cloud project. Configure consent branding/support/privacy links; request `drive.appdata` only when users enable backup. Add test users during development. Resolve production consent/publishing requirements in Google's console before launch; do not assume a testing OAuth configuration is production-ready.
 3. Set `FIREBASE_PROJECT_ID` in `wrangler.jsonc`, then deploy. Do not enable Firebase billing. Firebase client options and OAuth IDs are public app configuration; service-account keys are not needed in the APK or Worker. The Worker verifies Google-signed Firebase ID tokens with issuer/audience/provider checks.

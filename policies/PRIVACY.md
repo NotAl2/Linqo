@@ -16,6 +16,8 @@ Signing out removes access to the account tier on this device while preserving l
 
 Drive access is requested separately using the app-data scope. Sign-in alone does not upload a library. Enabled backups contain saved content, notes, extracted details, collections and copied files in the user's Google storage. Models, credentials and purchase entitlements are excluded. Automatic backups run opportunistically while the app is open, idle and on Wi-Fi; this is not continuous sync or a guaranteed background schedule. Existing snapshots remain when backup is disabled or the user signs out. Users can manage/delete app data through Google Drive settings. Provider storage protection is used; Linqo does not claim end-to-end encryption. Portable local ZIPs are unencrypted.
 
+Google sign-in is used to authenticate the account, and Drive data is used to provide the backup/restore feature you requested. Google account information and Drive backups are not sold, used for advertising or supplied as a training dataset. Contribution uploads are disabled in the current connected preview; enabling that separate feature requires further review of consent and provenance safeguards. Linqo's use and transfer of information received from Google APIs adheres to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including its Limited Use requirements.
+
 ## Optional extraction contributions
 
 Default off and separate from account/backup/diagnostics consent. If enabled, Linqo can upload small eligible English public-source excerpts, category, model/schema version, extraction result and optional correction. Personal notes, files and manual/private inputs are excluded. Obvious links, emails, handles and long numbers are removed; sensitive-looking inputs are rejected. Filtering cannot guarantee anonymity or identify every private fact. Do not enable this option if you do not want any source excerpts uploaded.
@@ -26,6 +28,6 @@ View or delete contributions in Account & backup, including deletion requests fo
 
 ## Controls and contact
 
-Continue without an account, keep local ZIP backups, disable Drive, opt out of contributions, inspect/delete samples, or delete your account in Settings. Avoid posting private receipts or source text to public GitHub issues. Contact the seller using the private contact supplied on the live Razorpay checkout; live activation requires that actual seller/support information be configured first.
+Continue without an account, keep local ZIP backups, disable Drive, opt out of contributions, inspect/delete samples, or delete your account in Settings. Avoid posting private receipts or source text to public GitHub issues. Contact gamer12773@gmail.com privately for support or privacy requests. Live purchase activation additionally requires the merchant's actual identity and purchase/refund disclosures to be published.
 
 Google/Firebase, Cloudflare, Razorpay, GitHub and source providers apply their own policies. Secrets and content payloads are excluded from operational logs by design. Infrastructure quotas/outages can interrupt optional services without deleting the local library.

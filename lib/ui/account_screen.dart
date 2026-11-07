@@ -344,11 +344,16 @@ class AccountScreen extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Contribute automatic samples'),
                       subtitle: const Text(
-                        'Off by default · at most two daily · Wi-Fi and idle only',
+                        CloudConfig.contributionsEnabled
+                            ? 'Off by default · at most two daily · Wi-Fi and idle only'
+                            : 'Paused in this preview · no source samples are uploaded',
                       ),
                       value: cloud.contributions,
                       onChanged:
-                          disabled || !signedIn || !CloudConfig.backendReady
+                          disabled ||
+                              !signedIn ||
+                              !CloudConfig.backendReady ||
+                              !CloudConfig.contributionsEnabled
                           ? null
                           : (value) => _act(context, () async {
                               if (value &&

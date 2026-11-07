@@ -54,11 +54,38 @@ class DriveBackup {
   final AccountIdentity identity;
   final http.Client client;
   static const fields = 'id,name,size,createdTime,md5Checksum,appProperties';
-  Future<Map<String, dynamic>> _json(http.BaseRequest request) async {
-    request.headers.addAll(await identity.driveHeaders());
-    final response = await client
-        .send(request)
-        .timeout(request is _Upload ? const Duration(minutes: 10) : const Duration(seconds: 30));
+  static void _checkAllowed(bool Function()? allowed) {
+    if (allowed != null && !allowed()) {
+      throw StateError('Backup paused. Try again when Linqo is open and idle.');
+    }
+  }
+
+  static StateError _failure(int status, List<int> bytes) {
+    var full = false;
+    try {
+      final value = jsonDecode(utf8.decode(bytes));
+      final errors = value['error']['errors'] as List?;
+      full = errors?.any((e) => e['reason'] == 'storageQuotaExceeded') ?? false;
+    } catch (_) {
+      // Never expose provider payloads, tokens or HTML error pages in the UI.
+    }
+    return StateError(
+      full
+          ? 'Your Google Drive storage is full. Free some space, then try again. Previous backups were kept.'
+          : switch (status) {
+              401 || 403 =>
+                'Drive access failed. Reconnect Drive and approve its permission.',
+              404 =>
+                'This Drive backup is no longer available. Choose another snapshot.',
+              429 => 'Drive is busy. Try again later.',
+              _ => 'Drive request failed. Your local library is safe.',
+            },
+    );
+  }
+
+  static Future<List<int>> _responseBytes(
+    http.StreamedResponse response,
+  ) async {
     final bytes = <int>[];
     await for (final chunk in response.stream.timeout(
       const Duration(seconds: 30),
@@ -68,13 +95,21 @@ class DriveBackup {
         throw const FormatException('Drive response was too large.');
       }
     }
+    return bytes;
+  }
+
+  Future<Map<String, dynamic>> _json(http.BaseRequest request) async {
+    request.headers.addAll(await identity.driveHeaders());
+    final response = await client
+        .send(request)
+        .timeout(
+          request is _Upload
+              ? const Duration(minutes: 10)
+              : const Duration(seconds: 30),
+        );
+    final bytes = await _responseBytes(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError(switch (response.statusCode) {
-        401 || 403 =>
-          'Drive access failed. Reconnect Drive or check storage and permissions.',
-        429 => 'Drive is busy. Try again later.',
-        _ => 'Drive request failed. Your local library is safe.',
-      });
+      throw _failure(response.statusCode, bytes);
     }
     return bytes.isEmpty
         ? {}
@@ -107,8 +142,15 @@ class DriveBackup {
   }
 
   Future<void> upload(File file, String device, bool Function() allowed) async {
+    _checkAllowed(allowed);
     final length = await file.length();
+    if (length > LibraryBackup.maxBytes + LibraryBackup.maxManifest) {
+      throw const FormatException(
+        'This backup exceeds the supported archive size.',
+      );
+    }
     final checksum = (await md5.bind(file.openRead()).first).toString();
+    _checkAllowed(allowed);
     final boundary = 'linqo-${LibraryBackup.newKey()}';
     final metadata = jsonEncode({
       'name': 'Linqo-${DateTime.now().toUtc().toIso8601String()}.zip',
@@ -150,6 +192,7 @@ class DriveBackup {
         'Drive could not verify the new backup. Previous backups were kept.',
       );
     }
+    _checkAllowed(allowed);
     // Only prune this installation's snapshots after server checksum verification.
     final snapshots = await list(device: device);
     for (final old in snapshots.skip(3)) {
@@ -163,7 +206,12 @@ class DriveBackup {
     }
   }
 
-  Future<File> download(DriveSnapshot snapshot, Directory work) async {
+  Future<File> download(
+    DriveSnapshot snapshot,
+    Directory work, {
+    bool Function()? allowed,
+  }) async {
+    _checkAllowed(allowed);
     const maximum = LibraryBackup.maxBytes + LibraryBackup.maxManifest;
     if (snapshot.bytes > maximum) {
       throw const FormatException(
@@ -182,45 +230,52 @@ class DriveBackup {
         )
         .timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {
-      throw StateError(
-        'Backup could not be downloaded. Check Drive permission.',
-      );
+      throw _failure(response.statusCode, await _responseBytes(response));
     }
     final file = File('${work.path}/restore.zip'),
         sink = File('${work.path}/restore.zip').openWrite();
     var count = 0;
     try {
-      await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 30),
-      )) {
-        count += chunk.length;
-        if (count > maximum) {
-          throw const FormatException(
-            'Backup exceeds the supported archive size.',
-          );
+      try {
+        await for (final chunk in response.stream.timeout(
+          const Duration(seconds: 30),
+        )) {
+          _checkAllowed(allowed);
+          count += chunk.length;
+          if (count > maximum) {
+            throw const FormatException(
+              'Backup exceeds the supported archive size.',
+            );
+          }
+          sink.add(chunk);
         }
-        sink.add(chunk);
+        await sink.flush();
+      } finally {
+        await sink.close();
       }
-      await sink.flush();
-    } finally {
-      await sink.close();
-    }
-    final metadata = await _json(
-      http.Request(
-        'GET',
-        Uri.https('www.googleapis.com', '/drive/v3/files/${snapshot.id}', {
-          'fields': 'md5Checksum,size',
-        }),
-      ),
-    );
-    if ((await md5.bind(file.openRead()).first).toString() !=
-            metadata['md5Checksum'] ||
-        count != snapshot.bytes) {
-      throw const FormatException(
-        'Backup checksum failed. The library has not changed.',
+      _checkAllowed(allowed);
+      final metadata = await _json(
+        http.Request(
+          'GET',
+          Uri.https('www.googleapis.com', '/drive/v3/files/${snapshot.id}', {
+            'fields': 'md5Checksum,size',
+          }),
+        ),
       );
+      if ((await md5.bind(file.openRead()).first).toString() !=
+              metadata['md5Checksum'] ||
+          count != snapshot.bytes ||
+          '${metadata['size']}' != '$count') {
+        throw const FormatException(
+          'Backup checksum failed. The library has not changed.',
+        );
+      }
+      _checkAllowed(allowed);
+      return file;
+    } catch (_) {
+      if (await file.exists()) await file.delete();
+      rethrow;
     }
-    return file;
   }
 
   void close() => client.close();
