@@ -1,11 +1,12 @@
 param([Parameter(Mandatory=$true)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,70}$')][string]$Milestone)
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path (Split-Path $PSScriptRoot -Parent)).Path
-$backupRoot = Join-Path $project '.project-backups'
+$projectsRoot = Split-Path $project -Parent
+$backupRoot = Join-Path $projectsRoot 'Linqo Backups'
 if (-not (Test-Path -LiteralPath $backupRoot)) { New-Item -ItemType Directory -Path $backupRoot | Out-Null }
 $target = Get-Item -LiteralPath $backupRoot
-if (($target.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $target.Parent.FullName -ne $project) {
-    throw 'Backup destination must be a real directory directly inside the workspace.'
+if (($target.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $target.Parent.FullName -ne $projectsRoot) {
+    throw 'Backup destination must be the real Linqo Backups directory beside the project.'
 }
 $acl = [System.Security.AccessControl.DirectorySecurity]::new()
 $acl.SetAccessRuleProtection($true, $false)

@@ -15,7 +15,10 @@ spec.loader.exec_module(backup)
 class ProjectBackupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='linqo-project-backup-test-')
-        self.project = Path(self.temp.name).resolve()
+        self.project = Path(self.temp.name).resolve() / 'Linqo'
+        self.project.mkdir()
+        self.backup_root = self.project.parent / 'Linqo Backups'
+        (self.project / 'pubspec.yaml').write_text('version: 0.9.0+17\n', encoding='utf-8')
         self.git('init', '-b', 'main')
         (self.project / 'app.dart').write_text('committed source', encoding='utf-8')
         (self.project / '.gitignore').write_text('.project-backups/\n.tools/\n.private/\n', encoding='utf-8')
@@ -38,6 +41,8 @@ class ProjectBackupTests(unittest.TestCase):
         (self.project / '.tools/cache.bin').write_bytes(b'not needed')
         result = backup.create_backup(self.project, 'first')
         archive = Path(result['archive'])
+        self.assertEqual(archive.parent, self.backup_root)
+        self.assertTrue(archive.name.startswith('Linqo-v0.9.0+17-'))
         backup.verify(archive, self.project)
         with zipfile.ZipFile(archive) as zipped:
             self.assertEqual(zipped.read('project/app.dart'), b'uncommitted work')
@@ -57,7 +62,7 @@ class ProjectBackupTests(unittest.TestCase):
             (self.project / 'app.dart').write_text(f'version {n}', encoding='utf-8')
             paths.append(Path(backup.create_backup(self.project, f'step-{n}')['archive']))
         self.assertFalse(paths[0].exists())
-        self.assertEqual(set((self.project / '.project-backups').glob('*.zip')), set(paths[1:]))
+        self.assertEqual(set(self.backup_root.glob('*.zip')), set(paths[1:]))
         for n, archive in enumerate(paths[1:], start=1):
             backup.verify(archive, self.project)
             with zipfile.ZipFile(archive) as zipped:
@@ -75,10 +80,10 @@ class ProjectBackupTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'checksum failed'):
             backup.create_backup(self.project, 'must-not-prune')
         self.assertTrue(all(path.exists() for path in paths))
-        self.assertFalse((self.project / '.project-backups/.backup.lock').exists())
+        self.assertFalse((self.backup_root / '.backup.lock').exists())
 
     def test_existing_lock_does_not_get_removed_or_write_archive(self):
-        root = self.project / '.project-backups'
+        root = self.backup_root
         root.mkdir()
         (root / '.backup.lock').write_text('existing writer')
         with self.assertRaises(FileExistsError):

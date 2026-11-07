@@ -82,9 +82,15 @@ def create_backup(project, milestone, signing_key=None):
     project = Path(project).resolve(strict=True)
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,70}', milestone):
         raise ValueError('Use a short milestone name with letters, digits, hyphens or underscores.')
-    backup_root = project / '.project-backups'
+    version_file = project / 'pubspec.yaml'
+    match = re.search(r'^version:\s*([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?)\s*$',
+                      version_file.read_text(encoding='utf-8'), re.MULTILINE)
+    if not match:
+        raise ValueError('A valid app version is required in pubspec.yaml.')
+    version = match.group(1)
+    backup_root = project.parent / 'Linqo Backups'
     backup_root.mkdir(exist_ok=True)
-    if linked(backup_root) or backup_root.resolve().parent != project:
+    if linked(backup_root) or backup_root.resolve().parent != project.parent:
         raise ValueError('Backup destination escaped the project or is linked.')
     # Exclusive lock prevents concurrent writers and retention races.
     lock = backup_root / '.backup.lock'
@@ -92,7 +98,7 @@ def create_backup(project, milestone, signing_key=None):
     os.write(handle, f'pid={os.getpid()}\n'.encode('ascii'))
     os.close(handle)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    identity = f'linqo-{stamp}-{milestone}'
+    identity = f'Linqo-v{version}-{stamp}-{milestone}'
     temporary = backup_root / (identity + '.part')
     destination = backup_root / (identity + '.zip')
     bundle = backup_root / ('.git-' + uuid.uuid4().hex + '.bundle')
@@ -112,7 +118,7 @@ def create_backup(project, milestone, signing_key=None):
             if linked(key):
                 raise ValueError('Refusing a linked signing key.')
             sources.append((key, 'recovery/signing/debug.keystore'))
-        manifest = {'format': FORMAT, 'project': str(project), 'milestone': milestone,
+        manifest = {'format': FORMAT, 'project': str(project), 'milestone': milestone, 'app_version': version,
                     'created_utc': datetime.now(timezone.utc).isoformat(),
                     'git_head': head, 'git_status': status,
                     'excluded_directories': sorted(EXCLUDED_DIRS),
@@ -148,7 +154,9 @@ def create_backup(project, milestone, signing_key=None):
         # Only our project's verified archives participate in retention. Unknown
         # files are preserved; never delete arbitrary ZIPs or follow links.
         owned = []
-        for archive in backup_root.glob('linqo-*.zip'):
+        for archive in backup_root.iterdir():
+            if not archive.name.lower().startswith('linqo-') or archive.suffix.lower() != '.zip':
+                continue
             if linked(archive):
                 raise ValueError('Refusing linked backup archive.')
             with zipfile.ZipFile(archive) as zipped:
