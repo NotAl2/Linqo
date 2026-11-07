@@ -13,6 +13,7 @@ import 'save_editor.dart';
 import 'settings_screen.dart';
 import 'preview_image.dart';
 import 'extracted_details.dart';
+import 'extraction_progress.dart';
 
 class SaveDetail extends StatelessWidget {
   const SaveDetail({super.key, required this.controller, required this.id});
@@ -336,6 +337,10 @@ class SaveDetail extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 16),
+                            if (busy && controller.activeId == item.id) ...[
+                              ExtractionProgressView(lab: controller.lab),
+                              const SizedBox(height: 16),
+                            ],
                             if (result != null) ...[
                               ExtractedDetails(result: result),
                             ] else

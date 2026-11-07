@@ -10,6 +10,7 @@ import 'brand.dart';
 import 'backup_section.dart';
 import 'release_settings.dart';
 import 'welcome_screen.dart';
+import 'notification_settings.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
@@ -50,6 +51,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Notifications'),
+                subtitle: const Text(
+                  'Local extraction completion and error alerts',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () =>
+                    openPage(context, const NotificationSettingsScreen()),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bug_report_outlined),
+                title: const Text('Diagnostics & logs'),
+                subtitle: const Text(
+                  'Opt-in local error logs · view, export or clear',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => openPage(context, const DiagnosticsScreen()),
+              ),
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -472,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-              const ReleaseSettings(),
+              ReleaseSettings(store: controller.store),
             ],
           ),
         ),

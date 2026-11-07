@@ -149,6 +149,8 @@ class LlamaLocalRuntime implements LocalRuntime, ProgressRuntime {
         }
         ExtractionResult.parse(buffer.toString(), part);
         outputs.add(value);
+        // A part counts as completed only after decoding and evidence validation.
+        onProgress?.call(index + 2, parts.length, false);
       } catch (error) {
         engine.cancelGeneration();
         if (_cancelled) return;

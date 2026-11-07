@@ -13,8 +13,12 @@ import 'ui/brand.dart';
 import 'ui/support_prompt.dart';
 import 'library/support_prompt_policy.dart';
 import 'services/diagnostics.dart';
+import 'services/local_notifications.dart';
+import 'ui/save_detail.dart';
 import 'ui/welcome_screen.dart';
 import 'ui/settings_screen.dart';
+import 'services/weekly_updates.dart';
+import 'ui/update_prompt.dart';
 
 class _SupportNavigation extends NavigatorObserver {
   _SupportNavigation(this.changed);
@@ -92,7 +96,15 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   bool _supportPending = false, _supportShown = false, _showingSupport = false;
   bool _foreground = true;
   bool _onboarding = false;
-  late final _supportNavigation = _SupportNavigation(_scheduleSupport);
+  bool _openingNotification = false;
+  WeeklyUpdates? _weeklyUpdates;
+  Timer? _updateTimer;
+  bool _checkingUpdates = false, _showingUpdate = false;
+  late final _supportNavigation = _SupportNavigation(() {
+    _scheduleSupport();
+    unawaited(_checkNotificationOpen());
+    _scheduleUpdates();
+  });
   bool get _supportEnabled =>
       widget.enableSupportPrompts ?? widget.controller == null;
   bool get _sharing =>
@@ -102,6 +114,11 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     if (_sharing) _shares.listen(() => unawaited(_checkShares()));
+    if (widget.controller == null) {
+      LocalNotifications.instance.listen(
+        () => unawaited(_checkNotificationOpen()),
+      );
+    }
     unawaited(_open());
   }
 
@@ -134,11 +151,18 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
           c.total == 0 &&
           await c.store.preference('theme') == null;
       controller = c;
+      if (widget.controller == null) _weeklyUpdates = WeeklyUpdates(c.store);
       mode = c.theme;
       c.addListener(_themeChanged);
       c.lab.addListener(_scheduleSupport);
       c.download.addListener(_scheduleSupport);
       setState(() => error = null);
+      _scheduleUpdates();
+      if (widget.controller == null) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => unawaited(_checkNotificationOpen()),
+        );
+      }
       if (_sharing) {
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => unawaited(_checkShares()),
@@ -159,8 +183,11 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
     _foreground = state == AppLifecycleState.resumed;
     if (_foreground) {
       _scheduleSupport();
+      unawaited(_checkNotificationOpen());
+      _scheduleUpdates();
     } else {
       _supportTimer?.cancel();
+      _updateTimer?.cancel();
     }
     if (state == AppLifecycleState.resumed && _sharing) {
       unawaited(_checkShares());
@@ -217,11 +244,110 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _checkNotificationOpen() async {
+    final nav = _navigator.currentState, c = controller;
+    if (!mounted ||
+        widget.controller != null ||
+        !_foreground ||
+        _onboarding ||
+        _openingNotification ||
+        _drainingShares ||
+        nav == null ||
+        c == null) {
+      return;
+    }
+    _openingNotification = true;
+    try {
+      final id = await LocalNotifications.instance.takeOpenSave();
+      if (id == null || !mounted) return;
+      final item = await c.store.get(id);
+      if (!mounted) return;
+      if (item == null) {
+        ScaffoldMessenger.maybeOf(_navigator.currentContext!)?.showSnackBar(
+          const SnackBar(
+            content: Text('This save is no longer in your library.'),
+          ),
+        );
+        return;
+      }
+      FocusManager.instance.primaryFocus?.unfocus();
+      unawaited(
+        nav.push<void>(
+          MaterialPageRoute(
+            builder: (_) => SaveDetail(controller: c, id: id),
+          ),
+        ),
+      );
+      _openingNotification = false;
+      if (mounted) unawaited(_checkNotificationOpen());
+    } catch (_) {
+      Diagnostics.instance.record('notifications.open_failed');
+    } finally {
+      _openingNotification = false;
+    }
+  }
+
   void _themeChanged() {
     if (mounted && controller!.theme != mode) {
       setState(() => mode = controller!.theme);
     }
     _scheduleSupport();
+    _scheduleUpdates();
+  }
+
+  bool get _quietForUpdate {
+    final c = controller, nav = _navigator.currentState;
+    return mounted &&
+        c != null &&
+        nav != null &&
+        _foreground &&
+        !_onboarding &&
+        !_openingNotification &&
+        !_drainingShares &&
+        !_showingSupport &&
+        !_showingUpdate &&
+        !nav.canPop() &&
+        !c.processing &&
+        !c.lab.busy &&
+        !c.download.busy &&
+        !c.hasPreviewWork &&
+        View.of(nav.context).viewInsets.bottom == 0;
+  }
+
+  void _scheduleUpdates() {
+    if (_weeklyUpdates == null ||
+        !_foreground ||
+        _checkingUpdates ||
+        _showingUpdate) {
+      return;
+    }
+    _updateTimer?.cancel();
+    _updateTimer = Timer(
+      const Duration(seconds: 4),
+      () => unawaited(_maybeUpdate()),
+    );
+  }
+
+  Future<void> _maybeUpdate() async {
+    final updates = _weeklyUpdates;
+    if (updates == null || !_quietForUpdate || _checkingUpdates) return;
+    _checkingUpdates = true;
+    try {
+      await updates.poll();
+      final release = await updates.pending();
+      if (release == null || !_quietForUpdate) return;
+      if (!await updates.claim(release) || !_quietForUpdate) return;
+      _showingUpdate = true;
+      await showDialog<void>(
+        context: _navigator.currentContext!,
+        builder: (_) => UpdatePrompt(release: release),
+      );
+    } catch (_) {
+      /* Optional update checks never interrupt the library. */
+    } finally {
+      _showingUpdate = false;
+      _checkingUpdates = false;
+    }
   }
 
   void _scheduleSupport() {
@@ -251,6 +377,7 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
         !_foreground ||
         _supportShown ||
         _showingSupport ||
+        _showingUpdate ||
         !_supportPending) {
       return;
     }
@@ -300,7 +427,11 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (_sharing) _shares.dispose();
+    if (widget.controller == null) {
+      LocalNotifications.instance.disposeListener();
+    }
     _supportTimer?.cancel();
+    _updateTimer?.cancel();
     controller?.lab.removeListener(_scheduleSupport);
     controller?.download.removeListener(_scheduleSupport);
     controller?.removeListener(_themeChanged);
@@ -338,6 +469,8 @@ class _LinqoAppState extends State<LinqoApp> with WidgetsBindingObserver {
                     setState(() => _onboarding = false);
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
+                      _scheduleUpdates();
+                      unawaited(_checkNotificationOpen());
                       if (setup) {
                         _navigator.currentState!
                             .push<void>(

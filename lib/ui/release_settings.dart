@@ -10,15 +10,69 @@ import '../app_version.dart';
 import '../services/diagnostics.dart';
 import '../services/update_checker.dart';
 import 'components.dart';
+import '../library/library_store.dart';
+import '../services/weekly_updates.dart';
 
 class ReleaseSettings extends StatefulWidget {
-  const ReleaseSettings({super.key});
+  const ReleaseSettings({super.key, this.store});
+  final LibraryStore? store;
   @override
   State<ReleaseSettings> createState() => _ReleaseSettingsState();
 }
 
 class _ReleaseSettingsState extends State<ReleaseSettings> {
   bool busy = false, previews = true;
+  bool weekly = true, saving = false;
+  WeeklyUpdates? get policy =>
+      widget.store == null ? null : WeeklyUpdates(widget.store!);
+  @override
+  void initState() {
+    super.initState();
+    unawaited(loadPreferences());
+  }
+
+  Future<void> loadPreferences() async {
+    try {
+      final p = policy;
+      if (p == null) return;
+      final enabled = await p.enabled(), channel = await p.previews();
+      if (mounted) {
+        setState(() {
+          weekly = enabled;
+          previews = channel;
+        });
+      }
+    } catch (_) {
+      /* Defaults are safe when preferences are unavailable. */
+    }
+  }
+
+  Future<void> setPreference(bool value, {bool channel = false}) async {
+    setState(() => saving = true);
+    try {
+      if (channel) {
+        await policy?.setPreviews(value);
+      } else {
+        await policy?.setEnabled(value);
+      }
+      if (mounted) {
+        setState(() {
+          if (channel) {
+            previews = value;
+          } else {
+            weekly = value;
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        message(context, 'Could not save this update setting. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   int taps = 0;
   DateTime? lastTap;
   String? status;
@@ -30,10 +84,12 @@ class _ReleaseSettingsState extends State<ReleaseSettings> {
       release = null;
     });
     try {
+      await policy?.manualAttempt();
       final found = await UpdateChecker().check(
         linqoVersion,
         previews: previews,
       );
+      await policy?.success(found, manual: true);
       if (mounted) {
         setState(() {
           release = found;
@@ -81,9 +137,20 @@ class _ReleaseSettingsState extends State<ReleaseSettings> {
       ),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
+        title: const Text('Check for updates weekly'),
+        subtitle: const Text(
+          'While Linqo is open. Show a reminder only when a newer version is available.',
+        ),
+        value: weekly,
+        onChanged: busy || saving ? null : (value) => setPreference(value),
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
         title: const Text('Include preview releases'),
         value: previews,
-        onChanged: busy ? null : (v) => setState(() => previews = v),
+        onChanged: busy || saving
+            ? null
+            : (v) => setPreference(v, channel: true),
       ),
       OutlinedButton.icon(
         onPressed: busy ? null : check,
@@ -117,7 +184,7 @@ class _ReleaseSettingsState extends State<ReleaseSettings> {
           child: const Text('View release on GitHub'),
         ),
       const Text(
-        'Checks run only when you tap. Updates open on GitHub; Linqo never installs an APK silently.',
+        'Weekly checks contact GitHub when you open or return to Linqo. You can turn them off above or check manually anytime. Updates open on GitHub; Linqo never downloads or installs an APK silently.',
       ),
     ],
   );
@@ -178,7 +245,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               const Text(
-                'Opt-in troubleshooting. No analytics or automatic uploads. Records event codes, error types and Linqo stack locations, without saved text, URLs, file paths or exception messages. Native process crashes may not be captured.',
+                'Turn on logging before reproducing a problem. Logs are off by default and are not created retroactively. No analytics or automatic uploads. Records event codes, error types and Linqo stack locations, without saved text, URLs, file paths or exception messages. Native crashes, out-of-memory kills and sudden shutdowns may not be captured.',
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

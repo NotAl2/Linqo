@@ -24,6 +24,17 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
+## New in v0.8.3 (development preview)
+
+- **Weekly update reminders:** when you open or return to Linqo, it checks GitHub at most once per week after successful checks. A popup appears only for a newer version, on a quiet library screen. **Later** snoozes it for a week. Offline failures stay silent and retry on a later visit after a one-day backoff. **Settings → About & updates → Check for updates weekly** turns this off; manual checks remain available. No background service, automatic APK download or silent installation is used.
+- **Settings → Notifications:** opt-in local extraction completion/error alerts, with a test button and Android permission/settings controls. No push server or account is used. Notifications contain no saved titles, captions or URLs; tapping a result opens its save. Only the latest result alert is retained. Cancelled/stopped work does not generate an error alert.
+- **Extraction progress:** the library and active save show the current part, checked-part coverage and elapsed time. Time remaining is an estimate based on completed parts or a comparable successful run in the current session. Loading and the first unchecked part stay indeterminate; the first job may have no ETA. Estimates vary with source length, model, threads and device load.
+- **Settings → Diagnostics & logs** is now visible near the top. Turn logging on before reproducing a problem, then view/export/clear local events. Logging is off by default, is not retroactive, and never uploads automatically. Native crashes, out-of-memory kills and sudden shutdowns may not be captured. The old seven-tap shortcut still works.
+
+Keep Linqo visible while extracting: the existing pause/cancel-on-background behavior is unchanged. Notifications do not add a background service or keep the model running after closing the app.
+
+The release is **0.8.3 build 16**. All **153 host tests** pass and static analysis is clean; prior local build 15 also passed Redmi notification posting/tap, cancellation and data-preservation checks. See the [v0.8.3 verification report](docs/V083_VERIFICATION.md) for the scope and remaining device checks.
+
 ## New in v0.8.2 (development preview)
 
 The native tutorial now demonstrates **Share → Linqo → optional extraction → done**, plus a sample caption becoming an organized recipe. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. The examples are local animations; they do not run a model or create real saves. Saves use content-specific reading layouts: ingredients, numbered steps and stated servings for recipes; concise bullet highlights for articles; ordered instructions for tutorials; and place details. Raw saved text is available through **⋮ → View saved source** or the editor instead of a long extraction-input section. Missing quantities and serving sizes are never estimated.
@@ -36,7 +47,7 @@ Verification includes a 139-test host regression run, 19 final targeted UI check
 
 First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
 
-Linqo is unlimited and donation-supported. There is no paid unlock, account, purchase restoration, usage quota or licensing backend in the app. The library, search, notes, backups and optional AI run locally. Fetching captions/previews, downloading a model, manually checking GitHub releases and opening Buy Me a Coffee remain optional online features.
+Linqo is unlimited and donation-supported. There is no paid unlock, account, purchase restoration, usage quota or licensing backend in the app. The library, search, notes, backups and optional AI run locally. Fetching captions/previews, downloading a model, optional GitHub update checks and opening Buy Me a Coffee use the internet. Weekly update checks are enabled by default and can be disabled in Settings.
 
 ## New in v0.8.0 (development preview)
 
@@ -57,7 +68,7 @@ The earlier tutorial clips have been removed. v1.0 remains a later optimization 
 
 Validated with **124 host tests**, clean static analysis and physical Redmi Note 7 Pro checks. A 6,119-character article completed all six parts in about **71 seconds** with two CPU threads; a short recipe took about **15–16 seconds**. Missing-file recovery, cancellation, deletion, a fresh checksum-verified download and extraction afterward passed. Tests used a separate library and verified that normal library data and preferences were unchanged. Performance and content coverage still vary by device and provider.
 
-The current v0.8.2 ARM64 APK is approximately **72.6 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
+The current v0.8.3 ARM64 APK is approximately **72.6 MB**; the optional model download is approximately **397 MB**. These are file sizes, not total Android installed storage or runtime memory requirements. Linqo remains an **active-development preview**.
 
 ## Install
 
@@ -93,7 +104,7 @@ The [automatic content report](docs/AUTOMATIC_CONTENT.md) and earlier [release r
 
 **Settings → Export saves** writes a portable ZIP to your chosen destination. **Import saves** merges a Linqo backup into the current library; it preserves current settings and does not replace existing saves. Model weights, model selection, transient Android share receipts and cached preview images are excluded. Use Refresh details to fetch missing covers again. Backups are unencrypted and contain your saved text and file copies; keep them private. Version 1 supports up to 10,000 saves, 16 MiB of library text and 512 MiB of file copies. Missing private file copies cause export to fail rather than silently omit them.
 
-Saves and file copies live in private app storage. No account is required for the library, and no hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the support button opens Buy Me a Coffee externally. Update checks contact GitHub only on request. Local diagnostics are disabled by default and exported only by the user.
+Saves and file copies live in private app storage. No account is required for the library, and no hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the support button opens Buy Me a Coffee externally. GitHub update checks run on request or on the optional weekly foreground schedule; failed automatic checks retry no more than once per day. Local diagnostics are disabled by default and exported only by the user. Local extraction notifications need no server.
 
 Metadata/content fetching is bounded to two jobs, a ten-second deadline, 1 MiB HTML per response and 700 KiB per image. The thumbnail disk cache is expendable and capped at 16 MiB/80 entries. Browsing uses local cached previews. No login cookies, WebView or JavaScript runtime are used for previews.
 

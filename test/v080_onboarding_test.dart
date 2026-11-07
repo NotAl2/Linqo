@@ -79,7 +79,7 @@ void main() {
       await store.close();
     }
   });
-  testWidgets('diagnostics entry stays hidden until seven version taps', (
+  testWidgets('legacy seven-version-tap shortcut still opens diagnostics', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -92,7 +92,7 @@ void main() {
     );
     expect(find.text('Local diagnostics'), findsNothing);
     for (var i = 0; i < 7; i++) {
-      await tester.tap(find.text('Linqo 0.8.2'));
+      await tester.tap(find.text('Linqo 0.8.3'));
       await tester.pump(const Duration(milliseconds: 50));
     }
     await tester.pumpAndSettle();

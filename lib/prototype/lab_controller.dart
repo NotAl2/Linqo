@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../domain/extraction_progress.dart';
 import '../services/diagnostics.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -64,8 +65,9 @@ class LabController extends ChangeNotifier {
       _modelStore = modelStore ?? ModelStore() {
     if (runtime is ProgressRuntime) {
       (runtime as ProgressRuntime).onProgress = (part, total, firstToken) {
-        currentPart = part;
+        currentPart = part.clamp(1, total.clamp(1, 64));
         totalParts = total;
+        progress.boundary(part, total, _runWatch?.elapsedMilliseconds ?? 0);
         if (firstToken) activeFirstOutputMs ??= _runWatch?.elapsedMilliseconds;
         _emit();
       };
@@ -79,6 +81,9 @@ class LabController extends ChangeNotifier {
   String? error;
   int threads = 2;
   int currentPart = 0, totalParts = 0;
+  final progress = ExtractionProgress();
+  Duration get extractionElapsed =>
+      Duration(milliseconds: _runWatch?.elapsedMilliseconds ?? 0);
   Stopwatch? _runWatch;
   bool selectionManaged = false;
   int? modelLoadMs;
@@ -359,6 +364,7 @@ class LabController extends ChangeNotifier {
     final watch = _runWatch = Stopwatch()..start();
     currentPart = 0;
     totalParts = 0;
+    progress.start('${model?.sha256}:$threads', source.text.length);
     runStartRssBytes = ProcessInfo.currentRss;
     int? firstOutputMs;
     var outcome = 'failed';
@@ -399,6 +405,10 @@ class LabController extends ChangeNotifier {
       }
     } finally {
       watch.stop();
+      progress.finish(
+        watch.elapsedMilliseconds,
+        successful: outcome == 'complete',
+      );
       cancellationMs = _cancelWatch?.elapsedMilliseconds;
       _cancelWatch?.stop();
       runEndRssBytes = ProcessInfo.currentRss;

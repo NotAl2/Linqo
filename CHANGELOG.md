@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.3 — 2026-11-07 (development preview)
+
+- Add persisted weekly foreground GitHub checks and a newer-version popup on quiet library screens. Snooze reminders for a week, back off offline failures for a day, and let users disable weekly checks or select the preview channel in Settings. Keep manual checks; never automatically download or install APKs. Publish as build 16, retaining compatible signing for in-place updates from local build 15.
+- Add opt-in Android local notifications for extraction completion, partial results and errors, with Android 13+ permission handling, a test action and notification settings. Keep saved titles/text/URLs out of alerts. Tapping an alert opens its save; cancelled/background-stopped jobs remain silent. No server, push SDK or background extraction service is introduced.
+- Show extraction part coverage, elapsed time and an explicitly approximate remaining-time estimate in the library and active save. Count parts only after evidence validation, use comparable successful session timings when available, and keep loading/uncalibrated work indeterminate.
+- Expose **Diagnostics & logs** near the top of Settings. Explain opt-in, non-retroactive capture and native crash/OOM limitations; preserve local viewing, export, clearing and the old version-tap shortcut.
+
 ## 0.8.2 — 2026-11-06 (development preview)
 
 - Expand the native first-start demos: Share → Linqo → optional extraction → done, and a sample caption becoming a recipe with ingredients, method and stated servings. Keep demonstrations finite, skippable, replayable and paused when inactive or processing.

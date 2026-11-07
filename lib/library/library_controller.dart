@@ -11,6 +11,7 @@ import 'models.dart';
 import '../sharing/link_preview.dart';
 import '../domain/extraction.dart';
 import '../domain/source_rules.dart';
+import '../services/local_notifications.dart';
 
 class LibraryController extends ChangeNotifier {
   LibraryController(
@@ -396,6 +397,9 @@ class LibraryController extends ChangeNotifier {
             _suspended ? 'cancelled' : 'failed',
             error: lab.error ?? 'Processing stopped. Tap Extract to try again.',
           );
+          if (!_suspended) {
+            await LocalNotifications.instance.show(saveId: id, failed: true);
+          }
           continue;
         }
         final hint =
@@ -406,13 +410,19 @@ class LibraryController extends ChangeNotifier {
         await lab.extract(item.body, typeHint: hint);
         if (_disposed) break;
         if (lab.result != null && !_suspended) {
-          await store.extraction(
+          final saved = await store.extraction(
             id,
             item.body,
             lab.rawOutput,
             lab.result!,
             evidenceSource: lab.evidence?.text,
           );
+          if (saved) {
+            await LocalNotifications.instance.show(
+              saveId: id,
+              partial: lab.result!.isPartial,
+            );
+          }
         } else {
           await store.status(
             id,
@@ -421,6 +431,9 @@ class LibraryController extends ChangeNotifier {
                 : 'failed',
             error: lab.error ?? 'Extraction stopped. Your source is safe.',
           );
+          if (lab.phase != LabPhase.cancelled && !_suspended) {
+            await LocalNotifications.instance.show(saveId: id, failed: true);
+          }
         }
         await refresh();
       }
@@ -428,6 +441,12 @@ class LibraryController extends ChangeNotifier {
       processingError = 'Processing stopped. $e';
       if (activeId != null && !_disposed) {
         await store.status(activeId!, 'failed', error: processingError);
+        if (!_suspended) {
+          await LocalNotifications.instance.show(
+            saveId: activeId,
+            failed: true,
+          );
+        }
       }
     } finally {
       // Browsing does not need the model resident after the queue drains.

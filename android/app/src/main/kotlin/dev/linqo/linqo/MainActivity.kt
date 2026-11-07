@@ -26,9 +26,11 @@ class MainActivity : FlutterActivity() {
     private val prefs by lazy { getSharedPreferences("share_inbox", MODE_PRIVATE) }
     private var backupResult: MethodChannel.Result? = null
     private var backupSource: File? = null
+    private var notifications: ExtractionNotifications? = null
 
     override fun configureFlutterEngine(engine: FlutterEngine) {
         super.configureFlutterEngine(engine)
+        notifications = ExtractionNotifications(this, MethodChannel(engine.dartExecutor.binaryMessenger, "dev.linqo/notifications"))
         MethodChannel(engine.dartExecutor.binaryMessenger, "dev.linqo/backup").setMethodCallHandler { call, result ->
             if (call.method != "save") {
                 result.notImplemented()
@@ -86,13 +88,25 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        notifications?.receive(intent)
         if (state == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receive(intent)
     }
 
     override fun onNewIntent(value: Intent) {
         super.onNewIntent(value)
         setIntent(value)
+        notifications?.receive(value)
         receive(value)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        notifications?.permissionFinished(requestCode)
+    }
+
+    override fun onDestroy() {
+        notifications?.dispose()
+        super.onDestroy()
     }
 
     @Deprecated("Android activity result bridge")

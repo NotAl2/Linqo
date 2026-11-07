@@ -8,6 +8,7 @@ import 'save_editor.dart';
 import 'settings_screen.dart';
 import 'brand.dart';
 import '../theme.dart';
+import 'extraction_progress.dart';
 
 class LibraryShell extends StatefulWidget {
   const LibraryShell({super.key, required this.controller});
@@ -203,13 +204,24 @@ class ProcessingStrip extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  controller.processing
-                      ? 'Extracting${controller.lab.totalParts > 1 ? ' · part ${controller.lab.currentPart}/${controller.lab.totalParts}' : ''} · ${controller.activeTitle.isEmpty ? 'Preparing model' : controller.activeTitle}'
-                      : controller.processingError,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      controller.processing
+                          ? 'Extracting${controller.lab.totalParts > 1 ? ' · part ${controller.lab.currentPart}/${controller.lab.totalParts}' : ''} · ${controller.activeTitle.isEmpty ? 'Preparing model' : controller.activeTitle}'
+                          : controller.processingError,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (controller.processing)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 6),
+                        child: ExtractionProgressView(lab: controller.lab),
+                      ),
+                  ],
                 ),
               ),
               if (controller.processing)

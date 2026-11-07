@@ -303,13 +303,14 @@ void main() {
     await tester.pump();
     expect(controller.processing, isTrue);
     await tester.tap(find.byIcon(Icons.search_rounded).last);
-    await tester.pumpAndSettle();
+    // Indeterminate progress deliberately animates while the job is pending.
+    await tester.pump(const Duration(milliseconds: 250));
     await tester.enterText(
       find.byKey(const ValueKey('library-search')),
       'coffee',
     );
     await tester.pump(const Duration(milliseconds: 250));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
     expect(find.text('Coffee on Saturday'), findsWidgets);
     expect(controller.processing, isTrue);
     await controller.stop();
