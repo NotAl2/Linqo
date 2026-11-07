@@ -37,6 +37,14 @@ The initial real upload exposed an isolate-capture bug: backup workers captured 
 
 ## Required before beta cloud qualification / stable activation
 
+### 2026-11-08 follow-up and recovery incident
+
+The owner confirmed OAuth Audience **In production** and Google Data Access **Verification not required** for the non-sensitive scopes. Branding fields were submitted, but Google rejected the Firebase homepage as not registered to the owner. The owner chose to leave branding pending; no domain purchase, brand approval or payment-provider change occurred.
+
+The automated real-Drive harness did not pass: its first run rejected a synthetic internal attachment filename, now corrected to the app's numeric naming convention. Critically, Flutter drive's default host cleanup uninstalled `dev.linqo.linqo`, deleting its app data; the second attempt exposed a missing cached identity. This was an agent testing error, not a failed library migration. No QA Drive snapshots were created. The normal signed APK was reinstalled and the verified November 7 snapshot restored four saves/favourites. The exact pinned 397 MB model was recovered from the laptop, imported into private storage and verified installed after removing the temporary shared copy and restarting. Local settings were reset, and the owner confirmed no newer changes or settings needed recovery. The final app-data inode is 34477, not the pre-incident 34117. Normal USB sleep was restored to 0.
+
+Subsequent normal-app verification passed four successive uploads (00:58:34–00:59:01 IST), retaining three recent installation snapshots plus the older recovery snapshot. Explicit newest-snapshot merge showed success and retained four saves without duplicates after restart. The project Flutter wrapper now rejects drive commands lacking `--keep-app-running` or containing `--no-keep-app-running`; a rejected unsafe invocation was verified to stop before SDK/device work. The automated harness is restricted to a separate QA application identity going forward. Attachment, physical second-device and full live failure-matrix checks remain pending. See `docs/PRODUCTION_SETUP.md` for complete evidence and limitations.
+
 ### Additional production-preparation pass
 
 Public homepage/privacy/terms/support/purchase/digital-delivery pages are deployed through Firebase Hosting, without billing or payment activation. Desktop and true 390-pixel mobile rendering were inspected; the deployed privacy page returned HTTP 200, had no horizontal overflow and contains the Google Limited Use disclosure. The public pages remain explicit that Linqo is in active development and checkout is unavailable. OAuth production/audience/brand status has not been confirmed by the owner.

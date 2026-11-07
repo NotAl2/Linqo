@@ -1,5 +1,10 @@
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$FlutterArgs)
 $ErrorActionPreference = 'Stop'
+if ($FlutterArgs.Count -gt 0 -and $FlutterArgs[0] -eq 'drive') {
+    if ($FlutterArgs -notcontains '--keep-app-running' -or $FlutterArgs -contains '--no-keep-app-running') {
+        throw 'Flutter drive uninstalls its target app by default, deleting local data. This wrapper requires explicit --keep-app-running. Use a separate test application identity for physical-device acceptance; never run the harness against the user library package.'
+    }
+}
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $localSdk = Join-Path $projectRoot '.tools/flutter'
 if (Test-Path "$localSdk/bin/flutter.bat") {

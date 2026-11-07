@@ -13,6 +13,9 @@ import 'package:linqo/services/account_identity.dart';
 import 'package:linqo/services/drive_backup.dart';
 
 // Requires a configured build and an already signed-in, Drive-authorized account.
+// Run only with a separate test application identity. Flutter drive defaults to
+// uninstalling its target package on exit; the project wrapper now rejects that
+// mode without --keep-app-running. Never target the user's installed library.
 // Uses isolated databases and a unique Drive device marker. No main-library
 // database, preferences, model files or non-test snapshot is changed.
 void main() {
@@ -60,7 +63,7 @@ void main() {
         final attachments = await Directory('${root.path}/files').create();
         final random = Random(731);
         final bytes = List.generate(128 * 1024, (_) => random.nextInt(256));
-        await File('${attachments.path}/fixture.bin').writeAsBytes(bytes);
+        await File('${attachments.path}/123.bin').writeAsBytes(bytes);
         final collection = await source.saveCollection('[QA] Cookbook', 0);
         final recipe = await source.save(
           SaveDraft(
@@ -78,7 +81,7 @@ void main() {
             title: '[QA] Attachment',
             kind: SaveKind.file,
             fileName: 'fixture.bin',
-            attachment: 'fixture.bin',
+            attachment: '123.bin',
           ),
         );
         await target.setPreference('theme', 'dark');
