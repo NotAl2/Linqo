@@ -8,7 +8,9 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 <p align="center">
   <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
-  <img src="linqo.gif" alt="Linqo Showcase" width="170">
+</p>
+<p align="center">
+  <img src="linqo.gif" alt="Linqo Showcase" width="100%">
 </p>
 
 ## What works today
