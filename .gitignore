@@ -41,3 +41,13 @@ node_modules/
 .wrangler/
 .dev.vars
 .dev.vars.*
+.private/
+cloud/.wrangler/
+cloud/test-output/
+android/app/google-services.json
+firebase-options.local.json
+firebase-debug.log
+firebase-debug.*.log
+__pycache__/
+*.py[cod]
+!docs/V090_VERIFICATION.md

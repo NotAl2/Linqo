@@ -1,0 +1,11 @@
+import {generateKeyPair,exportJWK} from 'jose';
+import {randomBytes} from 'node:crypto';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+const directory=resolve('.private/linqo-cloud');await mkdir(directory,{recursive:true,mode:0o700});
+const {publicKey,privateKey}=await generateKeyPair('EdDSA',{extractable:true});
+const publicJwk=await exportJWK(publicKey);
+await writeFile(resolve(directory,'secrets.json'),JSON.stringify({ENTITLEMENT_PRIVATE_JWK:JSON.stringify(await exportJWK(privateKey)),CONTRIBUTOR_HMAC_SECRET:randomBytes(32).toString('hex'),ACCOUNT_HMAC_SECRET:randomBytes(32).toString('hex')}),{flag:'wx',mode:0o600});
+await writeFile(resolve(directory,'public-key.txt'),publicJwk.x,{flag:'wx',mode:0o600});
+console.log('Private signing/HMAC material saved under .private/linqo-cloud. Nothing was deployed. Back it up securely; never commit it.');
+console.log(`Public client key: ${publicJwk.x}`);

@@ -1,2 +1,2 @@
-const linqoVersion = '0.8.3';
-const linqoBuild = 16;
+const linqoVersion = '0.9.0';
+const linqoBuild = 17;

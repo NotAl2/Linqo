@@ -24,7 +24,17 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
-## New in v0.8.3 (development preview)
+## Development updates
+
+### Unreleased v0.9.0 account/backup beta
+
+The working tree adds **Settings → Account, tiers & Drive backup**: optional Firebase Google login, optional daily/manual Drive backup and restore, tier/purchase controls and separately consented extraction contributions. These services need deployment/account configuration; **live Google/Drive/Razorpay flows are not yet qualified**. Missing configuration preserves local use. This is not v1.0 stable.
+
+Planned one-time tiers: **Free: 50 saves / 5 collections; XL US$5: 150 / 30; XXL US$10: unlimited and compatible custom-model imports**. Built-in English AI and backups stay free. Existing/restored over-limit data and installed models are preserved. **Paid limits and checkout stay disabled in the development preview until real purchase/restoration/refund acceptance passes.** Donations remain voluntary and do not grant a tier. Future customization is not yet delivered.
+
+See [cloud setup](cloud/README.md), [privacy](policies/PRIVACY.md), [purchases](policies/PURCHASES.md) and [private training workflow](tools/training/README.md). Model fine-tuning runs manually on separately reviewed data; no model improvement is claimed from merely collecting samples.
+
+### Published v0.8.3
 
 - **Weekly update reminders:** when you open or return to Linqo, it checks GitHub at most once per week after successful checks. A popup appears only for a newer version, on a quiet library screen. **Later** snoozes it for a week. Offline failures stay silent and retry on a later visit after a one-day backoff. **Settings → About & updates → Check for updates weekly** turns this off; manual checks remain available. No background service, automatic APK download or silent installation is used.
 - **Settings → Notifications:** opt-in local extraction completion/error alerts, with a test button and Android permission/settings controls. No push server or account is used. Notifications contain no saved titles, captions or URLs; tapping a result opens its save. Only the latest result alert is retained. Cancelled/stopped work does not generate an error alert.
@@ -47,7 +57,7 @@ Verification includes a 139-test host regression run, 19 final targeted UI check
 
 First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
 
-Linqo is unlimited and donation-supported. There is no paid unlock, account, purchase restoration, usage quota or licensing backend in the app. The library, search, notes, backups and optional AI run locally. Fetching captions/previews, downloading a model, optional GitHub update checks and opening Buy Me a Coffee use the internet. Weekly update checks are enabled by default and can be disabled in Settings.
+Published v0.8.3 is unlimited and donation-supported. The unreleased v0.9.0 integration prepares optional accounts, Drive backup and Razorpay tiers, with payment/usage limits disabled until acceptance. The library, search, notes, local backups and optional AI run locally. Fetching captions/previews, model downloads, optional GitHub checks and enabled cloud features use the internet. Weekly update checks can be disabled in Settings.
 
 ## New in v0.8.0 (development preview)
 
@@ -104,7 +114,7 @@ The [automatic content report](docs/AUTOMATIC_CONTENT.md) and earlier [release r
 
 **Settings → Export saves** writes a portable ZIP to your chosen destination. **Import saves** merges a Linqo backup into the current library; it preserves current settings and does not replace existing saves. Model weights, model selection, transient Android share receipts and cached preview images are excluded. Use Refresh details to fetch missing covers again. Backups are unencrypted and contain your saved text and file copies; keep them private. Version 1 supports up to 10,000 saves, 16 MiB of library text and 512 MiB of file copies. Missing private file copies cause export to fail rather than silently omit them.
 
-Saves and file copies live in private app storage. No account is required for the library, and no hosted inference service or cloud sync is used. Android cloud backup is disabled. Adding/sharing or refreshing a link contacts its public provider for metadata/images; optional model setup contacts Hugging Face, and the support button opens Buy Me a Coffee externally. GitHub update checks run on request or on the optional weekly foreground schedule; failed automatic checks retry no more than once per day. Local diagnostics are disabled by default and exported only by the user. Local extraction notifications need no server.
+Saves and file copies live in private app storage. No account is required for the local library and no hosted inference service or continuous cloud sync is used. Android system cloud backup is disabled. The unreleased optional Drive integration uploads a library only after separate permission; optional contributions require separate explicit consent. See the privacy policy above. Adding/sharing or refreshing a link contacts its public provider; model setup contacts Hugging Face; support opens Buy Me a Coffee. GitHub checks and local diagnostics retain their existing controls. Local extraction notifications need no server.
 
 Metadata/content fetching is bounded to two jobs, a ten-second deadline, 1 MiB HTML per response and 700 KiB per image. The thumbnail disk cache is expendable and capped at 16 MiB/80 entries. Browsing uses local cached previews. No login cookies, WebView or JavaScript runtime are used for previews.
 

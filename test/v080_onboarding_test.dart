@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:linqo/app_version.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/main.dart';
@@ -92,7 +93,7 @@ void main() {
     );
     expect(find.text('Local diagnostics'), findsNothing);
     for (var i = 0; i < 7; i++) {
-      await tester.tap(find.text('Linqo 0.8.3'));
+      await tester.tap(find.text('Linqo $linqoVersion'));
       await tester.pump(const Duration(milliseconds: 50));
     }
     await tester.pumpAndSettle();

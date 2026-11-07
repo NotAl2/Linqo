@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 — unreleased account/backup beta
+
+- Add optional Firebase Google identity and an Account, tiers & Drive backup screen. Continue without an account; missing configuration keeps the local library usable.
+- Implement Free/XL/XXL policy (50/150/unlimited saves, 5/30/unlimited collections), with custom model imports reserved for XXL once limits are activated. Preserve existing/restored over-limit data and already installed models. Keep paid limits off in the preview.
+- Add streamed, checksum-verified Drive app-data backups, daily foreground Wi-Fi scheduling with failure backoff, manual backup/merge restore and three verified snapshots per device.
+- Add a disabled-by-default Razorpay/Cloudflare integration: server-owned USD products, captured payment ledger, signatures, replay-safe webhooks, refund fallback and signed offline entitlements. Keep Buy Me a Coffee donations separate. Real merchant/auth flows remain unqualified.
+- Add separately consented, tightly bounded contribution intake, history/deletion, raw retention and private checksummed laptop export tools with optional weekly scheduling. Prepare reviewed dataset and manual LoRA/QLoRA tooling; do not automatically train or publish models.
+- Add production-signing configuration support without replacing the existing development signing key. Stable certificate migration remains a release gate.
+
 ## 0.8.3 — 2026-11-07 (development preview)
 
 - Add persisted weekly foreground GitHub checks and a newer-version popup on quiet library screens. Snooze reminders for a week, back off offline failures for a day, and let users disable weekly checks or select the preview channel in Settings. Keep manual checks; never automatically download or install APKs. Publish as build 16, retaining compatible signing for in-place updates from local build 15.

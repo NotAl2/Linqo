@@ -12,6 +12,8 @@ import '../sharing/link_preview.dart';
 import '../domain/extraction.dart';
 import '../domain/source_rules.dart';
 import '../services/local_notifications.dart';
+import '../services/cloud_services.dart';
+import '../services/tiers.dart';
 
 class LibraryController extends ChangeNotifier {
   LibraryController(
@@ -23,6 +25,7 @@ class LibraryController extends ChangeNotifier {
   }) : lab = LabController(runtime: runtime ?? LlamaLocalRuntime()),
        download = downloader ?? ModelDownload();
   final LibraryStore store;
+  CloudServices? cloud;
   final LabController lab;
   final ModelDownload download;
   final PreviewJob Function(String)? previewFactory;
@@ -58,6 +61,19 @@ class LibraryController extends ChangeNotifier {
     grid = await store.preference('layout') != 'list';
     autoExtract = await store.preference('auto_extract') != 'false';
     await refresh();
+    cloud = CloudServices(
+      store,
+      attachments: attachmentDirectory,
+      idle: () =>
+          !_disposed &&
+          !processing &&
+          !lab.busy &&
+          !download.busy &&
+          !hasPreviewWork,
+      refreshed: refresh,
+    );
+    store.limits = () => cloud!.limits;
+    unawaited(cloud!.initialize());
     unawaited(_resumePreviews());
     if (restoreModel) {
       unawaited(
@@ -234,6 +250,8 @@ class LibraryController extends ChangeNotifier {
   }
 
   void foreground() {
+    cloud?.foreground = true;
+    if (cloud != null) unawaited(cloud!.tick());
     _foreground = true;
     _suspended = false;
     unawaited(recheckModel());
@@ -418,6 +436,13 @@ class LibraryController extends ChangeNotifier {
             evidenceSource: lab.evidence?.text,
           );
           if (saved) {
+            cloud?.consider(
+              item,
+              lab.evidence?.text ?? item.body,
+              lab.rawOutput,
+              lab.result!.type,
+              lab.model?.sha256 ?? 'unknown',
+            );
             await LocalNotifications.instance.show(
               saveId: id,
               partial: lab.result!.isPartial,
@@ -484,6 +509,7 @@ class LibraryController extends ChangeNotifier {
   }
 
   Future<void> background() async {
+    cloud?.foreground = false;
     _foreground = false;
     download.pause();
     await stop();
@@ -539,6 +565,11 @@ class LibraryController extends ChangeNotifier {
   }
 
   Future<void> importModel(String path, String name) async {
+    if (cloud != null && !cloud!.limits.customModels) {
+      throw const TierLimitException(
+        'Importing a custom model is included in Linqo XXL. The built-in English model stays free.',
+      );
+    }
     if (processing || download.busy) {
       throw StateError('Stop processing before changing the model.');
     }
@@ -550,6 +581,7 @@ class LibraryController extends ChangeNotifier {
 
   @override
   void dispose() {
+    cloud?.dispose();
     _disposed = true;
     for (final job in _previews.values) {
       job.cancel();

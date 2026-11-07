@@ -8,14 +8,15 @@ import 'package:linqo/services/weekly_updates.dart';
 import 'package:linqo/services/update_checker.dart';
 import 'package:linqo/ui/update_prompt.dart';
 import 'package:linqo/theme.dart';
+import 'package:linqo/app_version.dart';
 
 void main() {
   sqfliteFfiInit();
   late LibraryStore store;
   late DateTime time;
   final release = AvailableRelease(
-    'v0.8.4',
-    Uri.parse('https://github.com/NotAl2/Linqo/releases/tag/v0.8.4'),
+    'v99.0.0',
+    Uri.parse('https://github.com/NotAl2/Linqo/releases/tag/v99.0.0'),
     true,
   );
   setUp(() async {
@@ -40,7 +41,7 @@ void main() {
     );
     await policy().poll();
     expect(calls, 1);
-    expect((await policy().pending())?.version, 'v0.8.4');
+    expect((await policy().pending())?.version, release.version);
     expect(await policy().claim(release), true);
     expect(await policy().claim(release), false);
     time = time.add(const Duration(days: 6));
@@ -104,7 +105,7 @@ void main() {
       expect(await p.pending(), isNull);
       await store.setPreference(
         WeeklyUpdates.pendingKey,
-        jsonEncode({'version': 'v0.8.3', 'preview': false}),
+        jsonEncode({'version': 'v$linqoVersion', 'preview': false}),
       );
       expect(await p.pending(), isNull);
       await store.setPreference(
@@ -195,11 +196,11 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    expect(find.text('Linqo v0.8.4 is ready'), findsOneWidget);
+    expect(find.text('Linqo ${release.version} is ready'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Later'));
     await tester.pumpAndSettle();
-    expect(find.text('Linqo v0.8.4 is ready'), findsNothing);
+    expect(find.text('Linqo ${release.version} is ready'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 }

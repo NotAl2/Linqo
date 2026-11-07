@@ -1,0 +1,19 @@
+{
+  "name": "linqo-cloud",
+  "account_id": "c98775a7bd68aeec8f54934a45e14333",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "observability": {"enabled": false},
+  "vars": {
+    "FIREBASE_PROJECT_ID": "",
+    "PAYMENTS_ENABLED": "false",
+    "CONTRIBUTIONS_ENABLED": "false",
+    "KEY_ID": "v1"
+  },
+  "d1_databases": [
+    {"binding": "PURCHASES", "database_name": "linqo-purchases", "database_id": "ce0c4fb6-5543-45e6-8f92-d87ac2fc9c4a", "migrations_dir": "migrations/purchases"},
+    {"binding": "CONTRIBUTIONS", "database_name": "linqo-contributions", "database_id": "0ec2d123-670c-452b-a7ef-8fb06d7bf078", "migrations_dir": "migrations/contributions"}
+  ],
+  "triggers": {"crons": ["19 3 * * *"]}
+}

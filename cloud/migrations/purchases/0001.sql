@@ -1,0 +1,6 @@
+CREATE TABLE orders(id TEXT PRIMARY KEY, uid TEXT NOT NULL, tier TEXT NOT NULL CHECK(tier IN ('xl','xxl')), cents INTEGER NOT NULL, currency TEXT NOT NULL, created INTEGER NOT NULL, session TEXT NOT NULL UNIQUE);
+CREATE INDEX orders_owner ON orders(uid,created);
+CREATE TABLE payments(id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id), refunded INTEGER NOT NULL DEFAULT 0, captured INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE events(id TEXT PRIMARY KEY, created INTEGER NOT NULL);
+CREATE TABLE request_limits(owner TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(owner,day));
+CREATE TABLE account_links(subject TEXT PRIMARY KEY, uid TEXT NOT NULL);

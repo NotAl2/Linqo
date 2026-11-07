@@ -11,6 +11,7 @@ import 'backup_section.dart';
 import 'release_settings.dart';
 import 'welcome_screen.dart';
 import 'notification_settings.dart';
+import 'account_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
@@ -51,6 +52,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_circle_outlined),
+                title: const Text('Account, tiers & Drive backup'),
+                subtitle: const Text(
+                  'Optional Google sign-in · local use stays available',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () =>
+                    openPage(context, AccountScreen(controller: controller)),
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.notifications_outlined),
@@ -302,6 +314,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               TextButton.icon(
                                 onPressed: canChange
                                     ? () async {
+                                        if (controller.cloud != null &&
+                                            !controller
+                                                .cloud!
+                                                .limits
+                                                .customModels) {
+                                          await openPage(
+                                            context,
+                                            AccountScreen(
+                                              controller: controller,
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         try {
                                           final picked = await FilePicker
                                               .platform

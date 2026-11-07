@@ -6,10 +6,12 @@ import '../sharing/source_content.dart';
 import 'models.dart';
 import 'library_backup.dart';
 import 'support_prompt_policy.dart';
+import '../services/tiers.dart';
 
 class LibraryStore {
   LibraryStore._(this.db);
   final Database db;
+  LibraryLimits Function()? limits;
   static Future<LibraryStore> open({
     String? path,
     DatabaseFactory? factory,
@@ -109,6 +111,14 @@ class LibraryStore {
       ),
     );
     final store = LibraryStore._(database);
+    // A small change counter also covers metadata, extraction and membership edits.
+    for (final table in ['saves', 'collections', 'memberships']) {
+      for (final operation in ['INSERT', 'UPDATE', 'DELETE']) {
+        await database.execute(
+          "CREATE TRIGGER IF NOT EXISTS revision_${table}_${operation.toLowerCase()} AFTER $operation ON $table BEGIN INSERT INTO preferences(key,value) VALUES ('library_revision','1') ON CONFLICT(key) DO UPDATE SET value=CAST(value AS INTEGER)+1; END",
+        );
+      }
+    }
     await database.update(
       'saves',
       {
@@ -265,6 +275,17 @@ class LibraryStore {
       };
       final int savedId;
       if (id == null) {
+        final maximum = limits?.call().saves;
+        if (maximum != null &&
+            (Sqflite.firstIntValue(
+                      await tx.rawQuery('SELECT COUNT(*) FROM saves'),
+                    ) ??
+                    0) >=
+                maximum) {
+          throw TierLimitException(
+            'Your tier includes $maximum saves. Delete a save or choose a larger tier in Settings.',
+          );
+        }
         savedId = await tx.insert('saves', {...values, 'created_at': now});
         await SupportPromptPolicy.recordSave(tx);
       } else {
@@ -495,6 +516,17 @@ class LibraryStore {
     }
     if (id == null) {
       return db.transaction((tx) async {
+        final maximum = limits?.call().collections;
+        if (maximum != null &&
+            (Sqflite.firstIntValue(
+                      await tx.rawQuery('SELECT COUNT(*) FROM collections'),
+                    ) ??
+                    0) >=
+                maximum) {
+          throw TierLimitException(
+            'Your tier includes $maximum collections. Delete a collection or choose a larger tier in Settings.',
+          );
+        }
         return tx.insert('collections', {'name': name.trim(), 'color': color});
       });
     }

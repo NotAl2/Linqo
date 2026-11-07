@@ -1,7 +1,7 @@
 name: linqo
 description: A private library with Android sharing and optional on-device extraction.
 publish_to: none
-version: 0.8.3+16
+version: 0.9.0+17
 environment:
   sdk: '>=3.10.7 <4.0.0'
 dependencies:
@@ -16,6 +16,12 @@ dependencies:
   url_launcher: 6.3.2
   open_filex: 4.7.0
   html: 0.15.7
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  google_sign_in: ^7.2.0
+  connectivity_plus: 7.3.1
+  cryptography: ^2.9.0
+  http: ^1.6.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

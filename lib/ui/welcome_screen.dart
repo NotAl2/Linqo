@@ -191,7 +191,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             page == 0
                                 ? 'Take a quick look'
                                 : page == 3
-                                ? 'Start my library'
+                                ? 'Continue without an account'
                                 : 'Next',
                           ),
                         ),
