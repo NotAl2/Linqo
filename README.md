@@ -38,6 +38,8 @@ See [cloud setup](cloud/README.md), [privacy](policies/PRIVACY.md), [purchases](
 
 Public [Linqo information](https://linqo-app-notal2.web.app/), [privacy](https://linqo-app-notal2.web.app/privacy) and [support](https://linqo-app-notal2.web.app/support) pages are hosted on Firebase Spark for OAuth preparation. See the [production setup checklist](docs/PRODUCTION_SETUP.md) for owner console steps, current Drive test coverage and Razorpay onboarding prerequisites. Publishing the pages does not mean Google has approved the OAuth brand or that purchases are activated.
 
+Local milestone recovery uses `scripts/Backup-Project.ps1 -Milestone <step-name>`, keeping three verified private project archives. See [project backup instructions](docs/PROJECT_BACKUPS.md); these archives include private configuration and must not be published.
+
 Contribution uploads are paused in both this preview's client and backend, including previously stored consent. Google account information and Drive backup data are excluded from training; contribution provenance/consent review must pass before a future build enables that separate feature.
 
 ### Published v0.8.3

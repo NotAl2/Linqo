@@ -54,3 +54,5 @@ __pycache__/
 .hosting-public/
 .firebase/
 !docs/PRODUCTION_SETUP.md
+.project-backups/
+!docs/PROJECT_BACKUPS.md
