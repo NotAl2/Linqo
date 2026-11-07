@@ -6,7 +6,10 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 [Download the latest APK](https://github.com/NotAl2/Linqo/releases) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2)
 
-<img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
+<p align="center">
+  <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
+  <video src="linqo.mp4" width="70%" controls></video>
+</p>
 
 ## What works today
 
