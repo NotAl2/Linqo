@@ -6,7 +6,8 @@ Development preview, not a verified live checkout. No Firebase Functions, Firest
 
 - Worker: `https://linqo-cloud.aryandurgude123.workers.dev`
 - Separate D1 databases: `linqo-purchases`, `linqo-contributions`.
-- `PAYMENTS_ENABLED=false`, `CONTRIBUTIONS_ENABLED=false`, Firebase project unset.
+- `PAYMENTS_ENABLED=false`, `CONTRIBUTIONS_ENABLED=false`; Firebase project `linqo-app-notal2` is configured.
+- Firebase billing is unlinked. Android package `dev.linqo.linqo`, current development SHA-1/SHA-256 certificates, Google provider and Drive/basic-auth APIs are registered/enabled. Google sign-in, manual Drive upload and duplicate-safe merge restore passed on the Redmi, including cached access after restart. Production OAuth publishing and the broader multi-device/failure matrix remain release gates.
 - Signing and HMAC secrets are generated locally under ignored `.private/linqo-cloud/` and uploaded as Worker secrets. Back them up privately. Never replace them casually: account links and existing signed offline entitlements depend on them.
 - The old `linqo-license` stub/database is separate and is not used by this implementation.
 
@@ -38,6 +39,8 @@ Create a **private** `firebase-options.local.json` with these public client fiel
 
 Use `scripts/Build-CloudPreview.ps1 -ConfigFile firebase-options.local.json`. Its allowlist rejects unexpected fields so payment secrets cannot accidentally be bundled. Missing config never prevents local library use. Sign-in alone never grants Drive permission or uploads a library.
 
+For this workspace, `scripts/Configure-Firebase.ps1 -GoogleServicesFile <downloaded-google-services.json>` validates the project/package/app number and Web OAuth client, then writes `.private/linqo-cloud/flutter-config.json` without printing client-key values. Build with `scripts/Build-CloudPreview.ps1 -ConfigFile .private/linqo-cloud/flutter-config.json`. The Google provider's client secret is never copied into this Flutter configuration. Run `python tools/check_apk_secrets.py <apk> --client-config .private/linqo-cloud/flutter-config.json` to verify expected client fields are packaged and known private server credentials are absent.
+
 ## Deploy and test
 
 From `cloud/`: `npm ci`, `npm test`, `npx wrangler d1 migrations apply linqo-purchases --remote`, `npx wrangler d1 migrations apply linqo-contributions --remote`, `npx wrangler deploy`. Setup is free-tier bounded; no script upgrades your plan. Do not edit an applied migration: add the next migration instead.
@@ -64,4 +67,4 @@ Monitor free Worker/D1 quotas, provider webhook deliveries and scheduled-task La
 
 No app analytics or automatic crash upload is added. Auth tokens are short-lived but token revocation/deletion may take up to their expiry to affect an already-issued server token. Data is protected by HTTPS and provider storage controls, not claimed to be end-to-end encrypted. Review privacy/merchant obligations before live activation.
 
-**Not yet qualified:** real Google/Drive/Razorpay flows; production signing certificate migration; Redmi performance with live cloud flows; GPU training; model quality improvement. Unit tests/mocked Drive traffic are not evidence of successful real payments or backups.
+**Not yet qualified:** production OAuth publishing, multi-device Drive restore and quota/revocation/interruption handling, real Razorpay flows, production signing certificate migration, Redmi extraction performance during cloud work, GPU training or model quality improvement. The Redmi's manual sign-in/upload/merge/restart checks passed; they do not qualify the remaining failure matrix or real payments.

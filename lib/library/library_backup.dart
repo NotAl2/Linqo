@@ -99,11 +99,27 @@ class LibraryBackup {
       };
     });
     return File(
-      await Isolate.run(
-        () => _pack(snapshot, attachments.path, workspace.path),
-      ),
+      await _packInWorker(snapshot, attachments.path, workspace.path),
     );
   }
+
+  // Keep isolate closures in static scopes with data-only parameters. Capturing
+  // `this` also captures store.limits -> controller -> active timers on phones.
+  static Future<String> _packInWorker(
+    Map<String, Object?> snapshot,
+    String attachmentRoot,
+    String workspaceRoot,
+  ) => Isolate.run(() => _pack(snapshot, attachmentRoot, workspaceRoot));
+
+  static Future<
+    ({
+      List<Map<String, Object?>> saves,
+      List<Map<String, Object?>> collections,
+      List<Map<String, Object?>> memberships,
+    })
+  >
+  _unpackInWorker(String input, String workspace) =>
+      Isolate.run(() => _unpack(input, workspace));
 
   static Future<String> _pack(
     Map<String, Object?> snapshot,
@@ -171,9 +187,7 @@ class LibraryBackup {
     File file,
     Directory workspace,
   ) async {
-    final manifest = await Isolate.run(
-      () => _unpack(file.path, workspace.path),
-    );
+    final manifest = await _unpackInWorker(file.path, workspace.path);
     final created = <File>[];
     var committed = false;
     try {

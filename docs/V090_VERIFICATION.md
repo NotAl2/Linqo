@@ -6,20 +6,20 @@ Linqo remains in active development. This is an unreleased development preview, 
 
 - Free/XL/XXL policy: 50/150/unlimited current saves, 5/30/unlimited collections, compatible custom-model import reserved for XXL when limits activate. SQL transaction checks preserve replayed share receipts, edits/deletion and existing/restored over-limit content. Preview limits remain off.
 - Optional Google/Firebase identity adapter, narrow Drive authorization, signed account-bound offline entitlements and account-switch backup consent guard. Missing cloud configuration preserves local library use.
-- Drive streaming, bounded download, remote checksum validation before pruning, three snapshots per installation, explicit merge restore, foreground daily Wi-Fi attempts and retry backoff. HTTP mocks cover corruption, cancellation and safe pruning; real Drive has not passed acceptance.
+- Drive streaming, bounded download, remote checksum validation before pruning, three snapshots per installation, explicit merge restore, foreground daily Wi-Fi attempts and retry backoff. HTTP mocks cover corruption, cancellation and safe pruning; manual upload/merge restore and cached access passed on the Redmi. Broader Drive failure/multi-device acceptance remains pending.
 - Backend server-owned Razorpay prices, captured-payment ledger, webhook signatures, idempotence/refunds and stable keyed Google purchase identity. A recreated Firebase account and an older unexpired token resolve to the same canonical purchase account. The app token still names the current Firebase user.
 - Separate contribution consent, bounded intake, registry/history/deletion after raw expiry, private incremental checksummed exports, and withdrawal application before dataset preparation.
 - Dataset preparation uses the actual app evidence parser and exact numbered-source/system prompt. Invalid source references and unreviewed/unpermitted examples are rejected. GPU training is manual and has not run.
 
 ## Evidence
 
-- 168 Flutter tests passed (`.tools/v090-tests.log`), including new tier, entitlement, Drive failure, account-switch, offline opt-out and large-text theme checks.
+- 169 Flutter tests passed (`.tools/v090-tests.log`), including tier, entitlement, Drive failure, account-switch, offline opt-out, large-text theme and live-controller backup isolation checks. The focused backup/Drive suite also passed all 12 tests.
 - 17 Node backend/export/dataset tests passed: signed mock Firebase identity, mocked Razorpay capture/refund, account recreation, contribution rules, interrupted exports and app-schema validation. These are provider mocks, not real money/account acceptance.
 - Five Python training-input validation tests passed without importing GPU training libraries, downloading a model or starting training. Real training requires a successful deletion pull within five minutes; the manual wrapper refreshes exports and rebuilds reviewed data first.
 - Android release APK built with Firebase/Google dependencies, existing development signing and optional model excluded. ARM64 preview is 74,815,335 bytes (74.8 MB decimal), SHA-256 `de6da26dc8b79412f7411c3efae7744f0d690116b0bb7052b3f9696493e646c3`. Its signing certificate matches the published v0.8.3 APK. Production signing migration remains unqualified.
 - Static analysis passed with no issues (`.tools/v090-analyze.log`).
 - Native Android emulator screenshots inspected for the account/tier and backup sections in light/dark themes. An initial emulator System UI hang occurred under laptop memory pressure; the emulator recovered after freeing idle Gradle resources. This is not a Redmi performance benchmark. Large text also passed widget checks.
-- Redmi was detected, but its installed app/data/settings/model were not changed during this implementation.
+- The Redmi was updated in place from v0.8.3 build 15 to the Firebase-connected v0.9.0 build 17. Android app-data identity stayed unchanged, the library retained four saves/zero collections and Settings still reported the optional model installed. Existing saves/settings/model were preserved.
 
 ## Provisioned external services
 
@@ -27,11 +27,17 @@ Worker `https://linqo-cloud.aryandurgude123.workers.dev` and separate `linqo-pur
 
 An authenticated empty contribution export succeeded. Weekly Windows task `Linqo private contribution export` is registered for Sunday 10:00 India Standard Time plus an overdue-only login check. Its test run returned code 0; no training is scheduled. Private keys and datasets are restricted to the current Windows user and SYSTEM, and ignored by Git.
 
-Firebase CLI Google authorization succeeded. Dedicated project creation failed with Google's `project quota exceeded` response. No existing unrelated project was modified; selecting an unused project, another owner account or a quota increase remains necessary.
+The first Google account reached its project quota. After the owner chose another account, dedicated Firebase project `linqo-app-notal2` (project number `22172552517`) was created without linking billing. Android app `1:22172552517:android:f30371f13e57c8c931822c` and the current development certificate's SHA-1/SHA-256 were registered. Google sign-in was enabled by the owner in the console; the official API confirmed it enabled. The supplied fresh SDK file contains Android/Web clients, matches the app package/certificate, and its Web client matches the provider. Drive/basic-auth APIs are enabled. No unrelated existing project was reused.
+
+The corrected Firebase-connected ARM64 preview is `.tools/Linqo-v0.9.0-firebase-preview-android-arm64.apk`, 74,815,335 bytes, SHA-256 `a15552b3042930eea5762dde90b784f9fd361a3b143c1d2ad457baf029229285`. APK inspection scanned 336 entries, found all expected Firebase client configuration fields and no known private server credential values. Android accepted the in-place update with the existing signing identity. Its Cloudflare deployment binds the new Firebase project; payments/contributions remain off. A mismatched project file was rejected without overwriting the working private configuration.
+
+Real Google sign-in passed on the Redmi with a separately selected end-user account. The app showed its signed-in identity, Free tier and all four saves without a cloud error; a read-only aggregate query confirmed one backend account link and zero payments. Drive backup remained disabled after login, and enabling it required a separate consent naming the destination account plus Google permission.
+
+The initial real upload exposed an isolate-capture bug: backup workers captured the store/controller and an unsendable timer. A regression reproduced the failure before the fix; static data-only worker entry points now protect both export and import. After rebuilding and updating in place, Drive upload succeeded (last success 2026-11-07 21:43:31 IST). The snapshot appeared in Drive's restore picker, explicit merge restore completed without a cloud error, and the library retained exactly four saves without duplicates. A process restart retained the account, enabled Drive setting, last-success timestamp and snapshot access; another merge left the count unchanged. App-data inode remained 34117, model remained installed and the original USB sleep setting was restored to 0. This tests a same-device four-save library, not multi-device or large-attachment recovery.
 
 ## Required before beta cloud qualification / stable activation
 
-1. Resolve Firebase project quota, register Android and signing fingerprints, enable Google identity/Drive, finish OAuth publishing/consent and test on real devices.
+1. Finish production OAuth publishing/consent and broader Drive acceptance. Project creation, provider/API enabling, client configuration, development fingerprints and Redmi Google sign-in/manual upload/merge/restart checks are complete.
 2. Complete the owner's Razorpay merchant/KYC/bank and international/USD activation, publish actual seller/support information, and perform authorized real payment, settlement, restoration/refund acceptance.
 3. Configure a private checkout-enabled acceptance build while leaving paid limits off. Enable quotas only after acceptance. Donations remain independent.
 4. Test real Drive quota/revocation/interruption and multi-device restore, live contribution consent/deletion and Redmi responsiveness during cloud work/extraction.

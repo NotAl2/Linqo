@@ -28,7 +28,9 @@ Screenshots use synthetic demonstration saves; the app starts with your own libr
 
 ### Unreleased v0.9.0 account/backup beta
 
-The working tree adds **Settings → Account, tiers & Drive backup**: optional Firebase Google login, optional daily/manual Drive backup and restore, tier/purchase controls and separately consented extraction contributions. These services need deployment/account configuration; **live Google/Drive/Razorpay flows are not yet qualified**. Missing configuration preserves local use. This is not v1.0 stable.
+The working tree adds **Settings → Account, tiers & Drive backup**: optional Firebase Google login, optional daily/manual Drive backup and restore, tier/purchase controls and separately consented extraction contributions. **Google sign-in and manual Drive upload/merge restore passed on the Redmi; broader cloud qualification and live Razorpay acceptance remain pending.** Missing configuration preserves local use. This is not v1.0 stable.
+
+Firebase project, Google provider, development signing fingerprints and the backend project binding are configured for the private connected preview, with billing unlinked. Real-device testing also fixed a backup worker capturing live app timers; export and import now send only snapshot data and paths to background workers. Production OAuth publishing, multi-device/failure testing and Razorpay merchant setup remain pending. See the cloud guide for generating a private configured build; ordinary builds without configuration retain local guest use.
 
 Planned one-time tiers: **Free: 50 saves / 5 collections; XL US$5: 150 / 30; XXL US$10: unlimited and compatible custom-model imports**. Built-in English AI and backups stay free. Existing/restored over-limit data and installed models are preserved. **Paid limits and checkout stay disabled in the development preview until real purchase/restoration/refund acceptance passes.** Donations remain voluntary and do not grant a tier. Future customization is not yet delivered.
 

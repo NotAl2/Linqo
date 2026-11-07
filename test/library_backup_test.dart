@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/library/library_backup.dart';
 import 'package:linqo/library/library_store.dart';
 import 'package:linqo/library/models.dart';
+import 'package:linqo/services/tiers.dart';
 
 void main() {
   sqfliteFfiInit();
@@ -29,6 +31,39 @@ void main() {
     await root.delete(recursive: true);
   });
   Future<Directory> work() => root.createTemp('work-');
+  test(
+    'backup workers do not capture the live controller policy or timer',
+    () async {
+      final timer = Timer.periodic(const Duration(hours: 1), (_) {});
+      LibraryLimits livePolicy() {
+        if (!timer.isActive) throw StateError('Controller was disposed.');
+        return const LibraryLimits(AppTier.free, enforced: false);
+      }
+
+      source.limits = livePolicy;
+      target.limits = livePolicy;
+      try {
+        await source.save(
+          const SaveDraft(title: 'Preserved save', body: 'Keep the source.'),
+        );
+        final archive = await LibraryBackup(source, files).export(await work());
+        final importer = LibraryBackup(
+          target,
+          Directory('${root.path}/restored-live'),
+        );
+        expect(await importer.import(archive, await work()), (
+          added: 1,
+          skipped: 0,
+        ));
+        expect((await target.query()).single.body, 'Keep the source.');
+        expect(timer.isActive, isTrue);
+      } finally {
+        timer.cancel();
+        source.limits = null;
+        target.limits = null;
+      }
+    },
+  );
   Future<File> mutate(
     File original,
     void Function(Map<String, dynamic>) change, {
