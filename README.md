@@ -25,7 +25,16 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 - Optional support link in **Settings → Support Linqo**. A dismissible reminder appears after the first successful save, then after a random 5–12 further saves and at least seven days, at most once per app session. It waits for a quiet library screen, with **Later** and a persistent **Don’t show again** checkbox. No donation is required to use the app.
 - Export/import ZIP backups in Settings, including saves, personal notes, extraction results, favourites, collections and private file copies. Repeat imports skip previously restored saves without overwriting later edits.
 
-<img src="docs/screenshots/library-light.png" alt="Linqo library with synthetic sample saves" width="260"> <img src="docs/screenshots/library-dark.png" alt="Linqo library in dark mode" width="260">
+<table>
+  <tr>
+    <th>Light mode</th>
+    <th>Dark mode</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/library-light.png" alt="Linqo library in light mode" width="260"></td>
+    <td><img src="docs/screenshots/library-dark.png" alt="Linqo library in dark mode" width="260"></td>
+  </tr>
+</table>
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
