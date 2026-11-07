@@ -32,7 +32,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
   </tr>
   <tr>
     <td><img src="docs/screenshots/library-light.png" alt="Linqo library in light mode" width="260"></td>
-    <td><img src="docs/screenshots/library-dark.png" alt="Linqo library in dark mode" width="260"></td>
+    <td><img src="docs/screenshots/library-dark.jpg" alt="Linqo library in dark mode" width="260"></td>
   </tr>
 </table>
 
