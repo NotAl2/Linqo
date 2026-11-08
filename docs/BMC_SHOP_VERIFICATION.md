@@ -1,6 +1,6 @@
 # Shop migration verification — v0.9.0+18
 
-Active development. Implementation and controlled fixtures pass; real Shop payment/restoration/refund acceptance is still pending. Checkout, paid limits and contributions remain disabled.
+Active development. Implementation and controlled fixtures pass; real Shop payment/restoration/refund acceptance is still pending. Normal-build checkout, paid limits and contributions remain disabled. The controlled server checkout window is noted below.
 
 ## Implemented
 
@@ -33,7 +33,7 @@ Active development. Implementation and controlled fixtures pass; real Shop payme
 ## Private acceptance artifact
 
 - Prepared `.tools/Linqo-v0.9.0-bmc-acceptance-android-arm64.apk`: 74,815,399 bytes; SHA-256 `dbc458cdb1b96ead59ccec5c06c2ff5ac7c88306ea515b9c3ff97bcd8f50217c`. Client checkout is enabled only in this separate artifact; paid limits remain disabled. The normal private config was unchanged and the normal preview APK was restored to the default release output after the build.
-- The acceptance APK passed the 336-entry private-credential scan and expected public Firebase configuration check. Build log: `.tools/bmc-acceptance-build.log`. Server payments remain disabled. This APK has not been installed on the owner's phone and cannot initiate checkout until the server acceptance window is explicitly enabled.
+- The acceptance APK passed the 336-entry private-credential scan and expected public Firebase configuration check. Build log: `.tools/bmc-acceptance-build.log`. At build preparation, server payments were disabled and the APK was not installed. The subsequent in-place Redmi installation and controlled server-window state are recorded below.
 - Required purchase-code question behavior must be confirmed before a controlled real transaction. No real funds have been charged, and the dashboard acknowledgement does not establish payment, settlement, refund or cross-device restoration acceptance.
 
 ## Backups and remaining gates
@@ -41,3 +41,13 @@ Active development. Implementation and controlled fixtures pass; real Shop payme
 Verified private checkpoints are maintained in `C:/Projects/Linqo Backups/`, retaining the newest three across app versions. A pre-switch snapshot and Shop-core checkpoint were created; final artifact/setup evidence receives another checkpoint. The backup wrapper now reuses an already-correct private ACL rather than unnecessarily attempting a privileged ACL rewrite.
 
 Google brand/domain verification remains pending at the owner's request. Required-question validation, live purchase/refund/restoration, genuine second-device acceptance, production signing migration and broader Drive/performance gates must pass before public paid-limit/stable activation. Neither unit fixtures nor the existing development signing certificate establish those results.
+
+## Redmi checkout acceptance started — 2026-11-08
+
+- Owner screenshot confirms Ask a question enabled with “Linqo purchase code” and quantity selection off. No Required toggle is visible in that screenshot; blank-answer behavior remains a checkout acceptance item. Discounts/pay-what-you-want need confirmation from the other product settings.
+- Before updating the physical Redmi, observed four saves, zero collections, Google signed in, light theme, Drive enabled and installed Qwen3-0.6B-Q4_K_M.gguf (397 MB). A fresh manual Drive backup completed at 18:52 IST. This library backup excludes settings and model weights.
+- Saved a protected copy of the installed APK and verified its signing SHA-256 equals the acceptance APK. Installed only with `adb install -r`; no uninstall, app-data clearing or Flutter integration harness. Android retained userId 10186 and firstInstallTime 2026-11-08 00:47:25 while versionCode advanced 17 → 18. The four saves, same Google session, light theme and installed model were observed after update.
+- Opened a controlled server checkout window using a deployment override `PAYMENTS_ENABLED:true`; the checked-in default remains false. Health confirmed payments_enabled=true, contributions_enabled=false. The normal client configuration and paid-limit flags remain disabled. Shop items are still drafts according to the owner; this does not establish general sales readiness. Deploying the ordinary checked-in configuration closes the server window.
+- Google-authenticated Choose XL produced the native US$5 / 250-save / 25-collection dialog and a valid-format purchase code on the phone. Copy code and Open Shop were exercised, handing off to the external browser. No payment has been submitted. Real checkout question, captured-payment linking, settlement, restoration and refund acceptance remain pending.
+
+- The external browser displayed Buy Me a Coffee 404 for the unpublished XL item. Requested the owner publish only XL for the controlled form check; XXL remains a draft. No card/payment details were entered or submitted. Blank-answer enforcement and real financial acceptance are still unverified. The owner must reload the product after publishing and stop before payment.
