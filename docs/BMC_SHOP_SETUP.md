@@ -45,7 +45,7 @@ A real purchase/refund cannot be certified by unit fixtures or dashboard test ev
 - No new Flutter payment SDK, embedded browser, email infrastructure or persistent polling worker is added.
 - Previous hosted checkout page, provider calls and verification routes are removed. A guarded schema migration refuses to discard any non-empty legacy financial ledger; production orders/payments were checked empty before replacement.
 - The owner added the signing key as a plain-text Worker variable. It was converted to encrypted secret **BMC_WEBHOOK_SECRET** without displaying the value, with a protected recovery copy retained for project backups. A locally signed non-live event returned HTTP 200 `ignored:test_event`; purchases and sessions remained zero, and checkout remained disabled.
-- Live Shop payment/restoration/refund acceptance is not complete. Provider-originated test delivery and required-question behavior still need confirmation. A locally signed probe verifies deployment wiring, not Buy Me a Coffee's actual delivery/signing configuration.
+- Live Shop payment/restoration/refund acceptance is not complete. The owner confirmed an actual Buy Me a Coffee dashboard test returned HTTP 200 with `{"ok":true,"ignored":"test_event"}` on 2026-11-08. Provider-originated test delivery is verified; required-question behavior and real payment ownership/restoration remain pending.
 
 See [build/deployment verification](BMC_SHOP_VERIFICATION.md) for test counts, artifact/signing hashes and remaining release gates.
 
