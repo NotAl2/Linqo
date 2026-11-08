@@ -46,4 +46,6 @@ A real purchase/refund cannot be certified by unit fixtures or dashboard test ev
 - Previous hosted checkout page, provider calls and verification routes are removed. A guarded schema migration refuses to discard any non-empty legacy financial ledger; production orders/payments were checked empty before replacement.
 - Live Shop payment/restoration/refund acceptance is not complete. Product questions, secret setup and test delivery still need owner confirmation.
 
+See [build/deployment verification](BMC_SHOP_VERIFICATION.md) for test counts, artifact/signing hashes and remaining release gates.
+
 Official references: [Shop setup](https://help.buymeacoffee.com/en/articles/9905719-a-complete-guide-on-buy-me-a-coffee-shop), [signed webhooks](https://help.buymeacoffee.com/en/articles/15743173-how-to-setup-and-use-buy-me-a-coffee-webhooks), [event schema](https://cdn.buymeacoffee.com/assets/integrations/bmc-webhooks-openapi.json), [fees](https://help.buymeacoffee.com/en/articles/8105744-how-to-calculate-charges-on-your-payment).
