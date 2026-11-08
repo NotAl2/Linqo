@@ -43,6 +43,8 @@ class CloudApi {
       throw StateError(switch (value['error']) {
         'checkout_not_live' =>
           'Checkout is not live yet. No payment was taken.',
+        'try_tomorrow' =>
+          'Too many purchase attempts today. Try again tomorrow.',
         'contribution_not_accepted' =>
           'Contribution allowance reached or sample already received.',
         'contributions_paused' =>

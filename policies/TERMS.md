@@ -16,7 +16,7 @@ Use the same Google account to access its backups. Signing out or deleting a Lin
 
 ## Donations and planned purchases
 
-Buy Me a Coffee donations are voluntary and do not grant XL or XXL. Paid checkout is not live. Planned one-time tier prices and limits appear in the purchase policy; they are not currently enforced in the development preview. Future customization is not advertised as an existing feature.
+Buy Me a Coffee donations are voluntary and do not grant XL or XXL. Separate Shop products are XL US$5 once (250 saves/25 collections) and XXL US$7 once (no product quotas and compatible custom-model imports). Start in Linqo while signed into Google and paste its single-use purchase code when the Shop asks; this binds the verified order to that account for restoration. Paid checkout is not live or qualified yet, and product quotas are not enforced in the development preview. Future customization is not advertised as an existing feature.
 
 The merchant's actual identity, support details and final purchase/refund terms must be published before payments are enabled. There is no subscription or recurring charge in the planned unlocks.
 

@@ -8,7 +8,9 @@ Saves, notes, file copies and English AI inference live on your device. Public t
 
 ## Optional accounts and purchases
 
-Google sign-in uses Firebase Authentication. The purchase backend receives an authenticated account identifier, verified provider identity and purchase/order records; Razorpay handles payment information. Card/bank details are not stored by Linqo. Minimal keyed identity links and payment records are retained for purchase restoration, refunds and required records. Buy Me a Coffee donations are separate and confer no paid tier.
+Google sign-in uses Firebase Authentication. Paid products use Buy Me a Coffee Shop. The purchase backend receives an authenticated account identifier and verified provider identity, issues a random account-bound purchase code and verifies signed Shop purchase/refund webhooks. Codes are stored as hashes; the full code is shown locally and copied only when you choose Copy code. Buy Me a Coffee handles checkout and payment information; card/bank details are not stored by Linqo.
+
+Shop webhooks may include buyer/contact fields, but Linqo retains only the minimal account binding, product/payment identifiers, amount/currency, timestamps and refund state. It does not save the raw webhook body or use buyer emails to assign a tier. Unused purchase-code sessions expire after 30 days and are removed within a further 60 days; minimal purchase/refund records remain for restoration, support and required records. Ordinary donation events are ignored by the unlock service and confer no paid tier.
 
 Signing out removes access to the account tier on this device while preserving local saves. Account deletion removes Firebase identity and retained contributions/consent; it does not erase local files, personal Drive backups or necessary purchase records. The same Google identity can restore a valid purchase after account recreation.
 
@@ -30,4 +32,4 @@ View or delete contributions in Account & backup, including deletion requests fo
 
 Continue without an account, keep local ZIP backups, disable Drive, opt out of contributions, inspect/delete samples, or delete your account in Settings. Avoid posting private receipts or source text to public GitHub issues. Contact gamer12773@gmail.com privately for support or privacy requests. Live purchase activation additionally requires the merchant's actual identity and purchase/refund disclosures to be published.
 
-Google/Firebase, Cloudflare, Razorpay, GitHub and source providers apply their own policies. Secrets and content payloads are excluded from operational logs by design. Infrastructure quotas/outages can interrupt optional services without deleting the local library.
+Google/Firebase, Cloudflare, Buy Me a Coffee, its payment processors, GitHub and source providers apply their own policies. Secrets, purchase codes and content payloads are excluded from operational logs by design. Infrastructure quotas/outages can interrupt optional services without deleting the local library.

@@ -7,12 +7,12 @@ class LibraryLimits {
   int? get saves => !enforced || tier == AppTier.xxl
       ? null
       : tier == AppTier.xl
-      ? 150
+      ? 250
       : 50;
   int? get collections => !enforced || tier == AppTier.xxl
       ? null
       : tier == AppTier.xl
-      ? 30
+      ? 25
       : 5;
   bool get customModels => !enforced || tier == AppTier.xxl;
 }

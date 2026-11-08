@@ -3,6 +3,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/library/library_store.dart';
 import 'package:linqo/services/account_identity.dart';
 import 'package:linqo/services/cloud_services.dart';
+import 'package:linqo/services/shop_purchase.dart';
+import 'package:linqo/services/tiers.dart';
 
 class _SwitchIdentity implements AccountIdentity {
   String? current = 'a';
@@ -37,6 +39,34 @@ class _SwitchIdentity implements AccountIdentity {
 
 void main() {
   sqfliteFfiInit();
+  test(
+    'switching Google accounts cannot open a purchase prepared for someone else',
+    () async {
+      final store = await LibraryStore.open(
+        path: inMemoryDatabasePath,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      final cloud = CloudServices(
+        store,
+        identity: _SwitchIdentity(),
+        idle: () => false,
+        refreshed: () async {},
+      );
+      try {
+        final purchase = ShopPurchase(
+          tier: AppTier.xl,
+          code: 'LQ-${'A' * 32}',
+          url: Uri.parse('https://buymeacoffee.com/notal2/e/101'),
+          expires: DateTime.now().add(const Duration(days: 1)),
+          accountId: 'different',
+        );
+        await expectLater(cloud.openPurchase(purchase), throwsStateError);
+      } finally {
+        cloud.dispose();
+        await store.close();
+      }
+    },
+  );
   test(
     'switching accounts requires Drive consent again even for a previously enabled account',
     () async {

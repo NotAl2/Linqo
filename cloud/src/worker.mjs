@@ -1,23 +1,13 @@
 import {createRemoteJWKSet, jwtVerify, importJWK, SignJWT} from 'jose';
-import {checkoutPage} from './checkout.mjs';
+import {digest,hmac,validSignature,fail} from './crypto.mjs';
+import {PRODUCTS,shopReady,startShopPurchase,effectiveShopTier,recordShopEvent} from './bmc_shop.mjs';
+export {digest,validSignature,PRODUCTS};
 
 const encoder = new TextEncoder();
 const googleKeys = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
-export const PRODUCTS = Object.freeze({xl: 500, xxl: 1000});
 const categories = new Set(['recipe','article','tutorial','place','general']);
+const authenticatedRoutes = new Set(['GET /entitlement','POST /shop/start','PUT /consent','POST /samples','GET /samples','DELETE /account']);
 const json = (data, status=200) => new Response(JSON.stringify(data), {status, headers:{'content-type':'application/json','cache-control':'no-store','x-content-type-options':'nosniff'}});
-function fail(code, status=400) { throw Object.assign(new Error(code), {status}); }
-export async function digest(value) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))), n=>n.toString(16).padStart(2,'0')).join(''); }
-async function hmac(secret, body) {
-  const key=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
-  return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,encoder.encode(body))),n=>n.toString(16).padStart(2,'0')).join('');
-}
-export async function validSignature(secret, body, supplied) {
-  if (!secret || !/^[a-f0-9]{64}$/i.test(supplied??'')) return false;
-  const expected=await hmac(secret,body); let difference=0;
-  for(let i=0;i<64;i++) difference |= expected.charCodeAt(i)^supplied.toLowerCase().charCodeAt(i);
-  return difference===0;
-}
 async function read(request, max=12288) {
   if(Number(request.headers.get('content-length'))>max) fail('payload_too_large',413);
   const reader=request.body?.getReader(); if(!reader) return '';
@@ -50,32 +40,12 @@ export async function purchaseAccount(db,subject,currentUid) {
   await db.prepare('INSERT OR IGNORE INTO account_links VALUES(?,?)').bind(subject,currentUid).run();
   return (await db.prepare('SELECT uid FROM account_links WHERE subject=?').bind(subject).first()).uid;
 }
-async function razor(env,path,{method='GET',body}={}) {
-  if(!env.RAZORPAY_KEY_ID||!env.RAZORPAY_KEY_SECRET) fail('checkout_not_configured',503);
-  const response=await fetch(`https://api.razorpay.com/v1/${path}`,{method,headers:{authorization:`Basic ${btoa(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`)}`,'content-type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
-  if(!response.ok) fail('payment_provider_unavailable',503);
-  return response.json();
-}
-export async function effectiveTier(db,uid) {
-  const rows=await db.prepare('SELECT o.tier FROM payments p JOIN orders o ON o.id=p.order_id WHERE o.uid=? AND p.captured=1 AND p.refunded=0').bind(uid).all();
-  return rows.results.some(x=>x.tier==='xxl')?'xxl':rows.results.some(x=>x.tier==='xl')?'xl':'free';
-}
+export const effectiveTier = effectiveShopTier;
 async function entitlement(env,uid,purchaseOwner) {
   const tier=await effectiveTier(env.PURCHASES,purchaseOwner);
   const key=await importJWK(JSON.parse(env.ENTITLEMENT_PRIVATE_JWK),'EdDSA');
   const token=await new SignJWT({tier,version:1}).setProtectedHeader({alg:'EdDSA',kid:env.KEY_ID??'v1'}).setSubject(uid).setAudience('dev.linqo.linqo').setIssuer('linqo-cloud').setIssuedAt().sign(key);
   return {token};
-}
-export async function recordPayment(env,payment) {
-  if (!env.RAZORPAY_KEY_ID?.startsWith('rzp_live_')) fail('live_payment_required',503);
-  if(!payment?.id || !/^[a-zA-Z0-9_]+$/.test(payment.id) || !payment.order_id) fail('invalid_payment');
-  const order=await env.PURCHASES.prepare('SELECT * FROM orders WHERE id=?').bind(payment.order_id).first();
-  // Ignore payments from unrelated products on the same merchant account.
-  if(!order) return;
-  if(payment.amount!==order.cents || payment.currency!==order.currency || PRODUCTS[order.tier]!==order.cents) fail('payment_mismatch');
-  if(!['captured','refunded'].includes(payment.status)) return;
-  const refund=payment.status==='refunded'||Number(payment.amount_refunded)>0?1:0;
-  await env.PURCHASES.prepare('INSERT INTO payments(id,order_id,refunded,captured) VALUES(?,?,?,1) ON CONFLICT(id) DO UPDATE SET refunded=MAX(payments.refunded,excluded.refunded),captured=1').bind(payment.id,order.id,refund).run();
 }
 export function validateSample(value) {
   const allowed=['version','category','source','output','correction','model','schema'];
@@ -114,60 +84,18 @@ export async function withdrawSample(db,owner,id) {
 }
 async function route(request,env) {
   const url=new URL(request.url), path=url.pathname;
-  if(path==='/checkout'&&request.method==='GET') return new Response(checkoutPage,{headers:{'content-type':'text/html;charset=utf-8','cache-control':'no-store','referrer-policy':'no-referrer','x-frame-options':'DENY','content-security-policy':"default-src 'self'; script-src 'unsafe-inline' https://checkout.razorpay.com; style-src 'unsafe-inline'; frame-src https://api.razorpay.com https://checkout.razorpay.com; connect-src 'self' https://*.razorpay.com; img-src 'self' data: https://*.razorpay.com; base-uri 'none'; form-action https://*.razorpay.com"}});
-  if(['/checkout/session','/checkout/verify'].includes(path)&&request.method==='POST') {
-    const value=JSON.parse(await read(request));
-    if(typeof value.session!=='string'||value.session.length>200) fail('invalid_session',401);
-    const order=await env.PURCHASES.prepare('SELECT * FROM orders WHERE session=? AND created>?').bind(await digest(value.session),Date.now()-30*60000).first();
-    if(!order) fail('checkout_expired',401);
-    if(path.endsWith('/session')) return json({order_id:order.id,key_id:env.RAZORPAY_KEY_ID,amount:order.cents,currency:order.currency,tier:order.tier});
-    if(!await validSignature(env.RAZORPAY_KEY_SECRET,`${order.id}|${value.payment_id}`,value.signature)) fail('invalid_payment',401);
-    const payment=await razor(env,`payments/${encodeURIComponent(value.payment_id)}`);
-    if(payment.order_id!==order.id) fail('payment_mismatch');
-    await recordPayment(env,payment);
-    if(payment.status!=='captured') fail('payment_pending',409);
-    return json({ok:true});
-  }
-  if(path==='/health'&&request.method==='GET') return json({ok:true,payments_enabled:env.PAYMENTS_ENABLED==='true',contributions_enabled:env.CONTRIBUTIONS_ENABLED==='true'});
-  if(path==='/webhooks/razorpay'&&request.method==='POST') {
+  if(path==='/health'&&request.method==='GET') return json({ok:true,payments_enabled:shopReady(env),contributions_enabled:env.CONTRIBUTIONS_ENABLED==='true'});
+  if(path==='/webhooks/buymeacoffee'&&request.method==='POST') {
     const raw=await read(request,65536);
-    if(!await validSignature(env.RAZORPAY_WEBHOOK_SECRET,raw,request.headers.get('x-razorpay-signature'))) fail('invalid_signature',401);
-    const event=JSON.parse(raw), id=request.headers.get('x-razorpay-event-id');
-    if(!id||id.length>200) fail('invalid_event');
-    if(await env.PURCHASES.prepare('SELECT id FROM events WHERE id=?').bind(id).first()) return json({ok:true});
-    const payment=event.payload?.payment?.entity;
-    if(['payment.captured','order.paid','refund.processed'].includes(event.event)&&payment) {
-      // Fetch provider state even for signed events: handles delayed/out-of-order refunds.
-      const current=await razor(env,`payments/${encodeURIComponent(payment.id)}`);
-      await recordPayment(env,current);
-    } else if(event.event==='refund.processed'&&event.payload?.refund?.entity?.payment_id) {
-      await recordPayment(env,await razor(env,`payments/${encodeURIComponent(event.payload.refund.entity.payment_id)}`));
-    }
-    await env.PURCHASES.prepare('INSERT OR IGNORE INTO events VALUES(?,?)').bind(id,Date.now()).run();
-    return json({ok:true});
+    if(!await validSignature(env.BMC_WEBHOOK_SECRET,raw,request.headers.get('x-signature-sha256'))) fail('invalid_signature',401);
+    return json(await recordShopEvent(env,JSON.parse(raw)));
   }
+  if(!authenticatedRoutes.has(`${request.method} ${path}`) && !(request.method==='DELETE'&&path.startsWith('/samples/'))) fail('not_found',404);
   const {uid,purchaseOwner}=await identity(request,env);
   if(path==='/entitlement'&&request.method==='GET') return json(await entitlement(env,uid,purchaseOwner));
-  if(path==='/orders'&&request.method==='POST') {
-    if(env.PAYMENTS_ENABLED!=='true'||!env.RAZORPAY_KEY_ID?.startsWith('rzp_live_')) fail('checkout_not_live',503);
-    const {tier}=JSON.parse(await read(request)); if(!Object.hasOwn(PRODUCTS,tier)) fail('invalid_product');
-    const day=new Date().toISOString().slice(0,10);
-    const limit=await env.PURCHASES.prepare('INSERT INTO request_limits(owner,day,count) VALUES(?,?,1) ON CONFLICT(owner,day) DO UPDATE SET count=count+1 WHERE count<10 RETURNING count').bind(purchaseOwner,day).first();
-    if(!limit) fail('try_tomorrow',429);
-    const order=await razor(env,'orders',{method:'POST',body:{amount:PRODUCTS[tier],currency:'USD',receipt:crypto.randomUUID(),notes:{product:tier}}});
-    if(order.amount!==PRODUCTS[tier]||order.currency!=='USD') fail('payment_mismatch',502);
-    const session=crypto.randomUUID()+crypto.randomUUID();
-    await env.PURCHASES.prepare('INSERT INTO orders VALUES(?,?,?,?,?,?,?)').bind(order.id,purchaseOwner,tier,PRODUCTS[tier],'USD',Date.now(),await digest(session)).run();
-    return json({checkout_url:`${url.origin}/checkout#${session}`});
-  }
-  if(path==='/orders/verify'&&request.method==='POST') {
-    const value=JSON.parse(await read(request));
-    const order=await env.PURCHASES.prepare('SELECT * FROM orders WHERE id=? AND uid=?').bind(value.order_id??'',purchaseOwner).first();
-    if(!order || !await validSignature(env.RAZORPAY_KEY_SECRET,`${order.id}|${value.payment_id}`,value.signature)) fail('invalid_payment',401);
-    const payment=await razor(env,`payments/${encodeURIComponent(value.payment_id)}`);
-    if(payment.order_id!==order.id) fail('payment_mismatch');
-    await recordPayment(env,payment);
-    return json(await entitlement(env,uid,purchaseOwner));
+  if(path==='/shop/start'&&request.method==='POST') {
+    const {tier}=JSON.parse(await read(request));
+    return json(await startShopPurchase(env,purchaseOwner,tier));
   }
   if((env.CONTRIBUTOR_HMAC_SECRET?.length??0)<32) fail('contributions_not_configured',503);
   const owner=await hmac(env.CONTRIBUTOR_HMAC_SECRET,uid), db=env.CONTRIBUTIONS;
@@ -192,7 +120,7 @@ async function route(request,env) {
   }
   if(path==='/account'&&request.method==='DELETE') {
     await db.batch([db.prepare('INSERT OR IGNORE INTO deletions(id,created) SELECT id,? FROM registry WHERE owner=?').bind(Date.now(),owner),db.prepare('DELETE FROM samples WHERE owner=?').bind(owner),db.prepare('DELETE FROM registry WHERE owner=?').bind(owner),db.prepare('DELETE FROM consent WHERE owner=?').bind(owner)]);
-    await env.PURCHASES.prepare('DELETE FROM account_links WHERE uid=? AND NOT EXISTS(SELECT 1 FROM orders WHERE uid=?)').bind(purchaseOwner,purchaseOwner).run();
+    await env.PURCHASES.prepare('DELETE FROM account_links WHERE uid=? AND NOT EXISTS(SELECT 1 FROM bmc_purchases WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM shop_sessions WHERE uid=?)').bind(purchaseOwner,purchaseOwner,purchaseOwner).run();
     // Payment records are retained for purchase restoration/refunds; no library data exists here.
     return json({ok:true});
   }
@@ -206,6 +134,7 @@ export default {
   async scheduled(_event,env) {
     const before=Date.now()-30*86400000;
     await env.CONTRIBUTIONS.batch([env.CONTRIBUTIONS.prepare('DELETE FROM samples WHERE created<?').bind(before),env.CONTRIBUTIONS.prepare('DELETE FROM daily WHERE day<?').bind(new Date(before).toISOString().slice(0,10))]);
+    await env.PURCHASES.prepare('DELETE FROM shop_sessions WHERE expires<?').bind(Date.now()-60*86400000).run();
     await env.PURCHASES.prepare('DELETE FROM request_limits WHERE day<?').bind(new Date(before).toISOString().slice(0,10)).run();
   }
 };

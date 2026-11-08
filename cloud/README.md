@@ -1,72 +1,44 @@
-# Linqo account, purchase and contribution backend
+# Linqo account and Shop backend
 
-Development preview, not a verified live checkout. No Firebase Functions, Firestore library, hosted inference or model upload service is used. Production launch remains gated on the checklist below.
+Active development preview. Library storage and English AI stay local. Optional Google identity uses Firebase Spark; purchase entitlements use Cloudflare Workers/D1; optional backups use the user's Drive. No hosted inference, Firebase Functions or hosted library database is added.
 
-## Provisioned in this workspace
+## Current configuration
 
-- Worker: `https://linqo-cloud.aryandurgude123.workers.dev`
-- Separate D1 databases: `linqo-purchases`, `linqo-contributions`.
-- `PAYMENTS_ENABLED=false`, `CONTRIBUTIONS_ENABLED=false`; Firebase project `linqo-app-notal2` is configured.
-- Firebase billing is unlinked. Android package `dev.linqo.linqo`, current development SHA-1/SHA-256 certificates, Google provider and Drive/basic-auth APIs are registered/enabled. Google sign-in, manual Drive upload and duplicate-safe merge restore passed on the Redmi, including cached access after restart. Production OAuth publishing and the broader multi-device/failure matrix remain release gates.
-- Signing and HMAC secrets are generated locally under ignored `.private/linqo-cloud/` and uploaded as Worker secrets. Back them up privately. Never replace them casually: account links and existing signed offline entitlements depend on them.
-- The old `linqo-license` stub/database is separate and is not used by this implementation.
+- Worker: https://linqo-cloud.aryandurgude123.workers.dev
+- Separate D1 databases: linqo-purchases and linqo-contributions.
+- Firebase project linqo-app-notal2; billing unlinked. Owner-confirmed Audience In production. Non-sensitive scopes require no scope verification; brand/domain verification remains pending by owner choice.
+- Shop products: XL 596224, US$5 once, 250 saves / 25 collections; XXL 596225, US$7 once, no product quotas and compatible custom-model imports.
+- PAYMENTS_ENABLED=false, client checkout/paid limits off. Contribution uploads paused in both client and server. Shop products remain drafts until acceptance.
+- Signing/HMAC secrets stay in ignored .private/linqo-cloud/ and Worker secrets. Preserve these keys: changing them can break account links or offline entitlements. Project backups include them and must remain private.
 
-## Finish setup without a paid infrastructure plan
+See [Shop setup](../docs/BMC_SHOP_SETUP.md), [production status](../docs/PRODUCTION_SETUP.md), [privacy](../policies/PRIVACY.md) and [purchase policy](../policies/PURCHASES.md).
 
-The public OAuth homepage/privacy/support pages are deployed on `https://linqo-app-notal2.web.app/`. The [production setup checklist](../docs/PRODUCTION_SETUP.md) records owner-confirmed Audience **In production** and non-sensitive Data Access **Verification not required**. Branding is pending because Google rejected ownership of the hosted Firebase homepage; the owner chose to defer a custom domain. Razorpay still needs truthful business-type onboarding and approved payment methods; no switch to another gateway has been authorized or implemented.
+## Purchase flow
 
-1. Create a Firebase project on **Spark**, without Analytics, Identity Platform upgrades, Firestore, Storage or billing. Add Android app `dev.linqo.linqo`; enable Google in Authentication. Configure OAuth Android SHA-1/SHA-256 for each signing certificate used. Create/record the Web OAuth client ID for Google Sign-In's `serverClientId`.
-2. Enable Google Drive API in that same Google Cloud project. Configure consent branding/support/privacy links; request `drive.appdata` only when users enable backup. Add test users during development. Resolve production consent/publishing requirements in Google's console before launch; do not assume a testing OAuth configuration is production-ready.
-3. Set `FIREBASE_PROJECT_ID` in `wrangler.jsonc`, then deploy. Do not enable Firebase billing. Firebase client options and OAuth IDs are public app configuration; service-account keys are not needed in the APK or Worker. The Worker verifies Google-signed Firebase ID tokens with issuer/audience/provider checks.
-4. Create a Razorpay merchant account and complete the owner's identity/bank/website checks. Request international/USD payments and confirm eligibility for this software business. Set live `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` using `wrangler secret put NAME`; do not place them in Dart or Git. Register `/webhooks/razorpay` for `payment.captured`, `order.paid`, `refund.processed`. Donation webhooks are not used.
-5. Before accepting real purchases, publish the actual seller/support/refund information linked from checkout. Confirm USD checkout and settlement on the approved account, including the intended customer countries. Indian domestic payment methods/currency availability must be verified; there is no invented INR price or FX conversion fallback.
-6. Leave the shipped preview's client paid-limits flag off. For a private acceptance build, enable `LINQO_CHECKOUT_ENABLED` separately, with the server's payments flag/live credentials configured. This can charge real money but does not enforce library quotas. Only after an authorized real buyer's capture, entitlement, reinstall/second-device restoration, partial/full refund and delayed-event tests pass should a stable client enable limits. Account-wide outage tests must preserve the offline unlock. Test-mode Razorpay keys cannot grant production entitlements.
-7. Enable contributions separately only after consent/deletion/export testing and a privacy review. Keep source payloads out of Worker logs; observability is off in the config.
+1. Google sign-in is optional for local free use, required to buy/restore. The server verifies Google's signed Firebase token, project, provider and verified-email claim. A keyed Google provider subject resolves to a stable purchase owner, even if its Firebase identity is recreated. Payment email does not assign ownership.
+2. Authenticated POST /shop/start accepts a tier, not a client price. It issues a random 128-bit code bound to the account/product/fixed USD price for 30 days. Only its hash is stored; at most ten starts/account/day.
+3. The native app shows the price/account, asks the buyer to copy the code, then opens the exact buymeacoffee.com/notal2/e/<configured product> URL externally. No embedded browser, checkout JavaScript SDK, email service or polling service is added. Paste the code when Shop asks for Linqo purchase code.
+4. POST /webhooks/buymeacoffee verifies x-signature-sha256 over the exact raw body before parsing. Only live completed Shop events with matching product/price/currency and valid pre-issued code link an unlock. Ordinary donation/membership events and dashboard tests never grant a tier.
+5. A code can link only one order. Product ownership cannot be reassigned by a later event. Signed updates can supply a missing answer before an order is linked. Unmatched completed orders retain minimal metadata for private support; there is no public email/receipt-ID claim shortcut.
+6. Signed refund events create a tombstone even if delivered before purchase. Delayed/repeated events cannot restore a refunded unlock. GET /entitlement signs the highest remaining valid tier using the current Firebase UID. Offline unlocks have no routine expiry; online checks apply refunds. Sign-out removes the account tier locally without deleting saves.
 
-Create a **private** `firebase-options.local.json` with these public client fields:
+Supported launch checkout: one product/quantity one, fixed USD prices, no discounts or mixed carts. Full XXL after XL costs US$7 separately. Device capacity and backup safety bounds still apply. Monitor delivery failures in Buy Me a Coffee; retries are finite and persistently failing webhooks may be disabled. A long outage may need creator replay/support review; failed event delivery is not treated as proof of payment.
 
-```json
-{
-  "LINQO_FIREBASE_PROJECT_ID": "your-project-id",
-  "LINQO_FIREBASE_API_KEY": "your-firebase-client-api-key",
-  "LINQO_FIREBASE_APP_ID": "your-android-app-id",
-  "LINQO_FIREBASE_SENDER_ID": "your-project-number",
-  "LINQO_GOOGLE_WEB_CLIENT_ID": "your-web-client-id.apps.googleusercontent.com",
-  "LINQO_CLOUD_URL": "https://linqo-cloud.aryandurgude123.workers.dev",
-  "LINQO_ENTITLEMENT_PUBLIC_KEY": "copy-public-key.txt",
-  "LINQO_PAID_LIMITS_ENABLED": false,
-  "LINQO_CHECKOUT_ENABLED": false
-}
-```
+## Deploy and build
 
-Use `scripts/Build-CloudPreview.ps1 -ConfigFile firebase-options.local.json`. Its allowlist rejects unexpected fields so payment secrets cannot accidentally be bundled. Missing config never prevents local library use. Sign-in alone never grants Drive permission or uploads a library.
+From cloud/: npm ci, npm test, then Wrangler d1 migrations apply linqo-purchases --remote and Wrangler deploy. Migration 0002_shop.sql removes the unused former checkout ledger only when orders/payments are empty. It preserves stable identity links and fails instead of deleting financial records. Applied migrations are append-only; do not edit 0001.sql.
 
-For this workspace, `scripts/Configure-Firebase.ps1 -GoogleServicesFile <downloaded-google-services.json>` validates the project/package/app number and Web OAuth client, then writes `.private/linqo-cloud/flutter-config.json` without printing client-key values. Build with `scripts/Build-CloudPreview.ps1 -ConfigFile .private/linqo-cloud/flutter-config.json`. The Google provider's client secret is never copied into this Flutter configuration. Run `python tools/check_apk_secrets.py <apk> --client-config .private/linqo-cloud/flutter-config.json` to verify expected client fields are packaged and known private server credentials are absent.
+Set the creator-generated BMC_WEBHOOK_SECRET through Cloudflare Worker secret settings or Wrangler's interactive secret put command. Never put it in Dart, Git, chat or command arguments. Product IDs are public configuration in wrangler.jsonc. A Buy Me a Coffee API token is not needed.
 
-## Deploy and test
+Use scripts/Configure-Firebase.ps1 with the downloaded SDK file to validate the project/package and generate private Flutter configuration. Build with scripts/Build-CloudPreview.ps1 using that private configuration. Its allowlist excludes provider secrets and keeps paid limits off. Client checkout is a separate flag for an authorized acceptance build. Run tools/check_apk_secrets.py against the result. Missing cloud configuration preserves local guest use.
 
-From `cloud/`: `npm ci`, `npm test`, `npx wrangler d1 migrations apply linqo-purchases --remote`, `npx wrangler d1 migrations apply linqo-contributions --remote`, `npx wrangler deploy`. Setup is free-tier bounded; no script upgrades your plan. Do not edit an applied migration: add the next migration instead.
+Do not enable public paid limits before verified Shop payment, same-Google restoration, refund, retry and account-switch acceptance. No script upgrades Firebase/Cloudflare to a paid infrastructure plan. Provider fees and tax obligations remain separate.
 
-For a fresh deployment, generate signing/HMAC material once with `node cloud/tools/keys.mjs` from the project root, then `npx wrangler secret bulk ../.private/linqo-cloud/secrets.json` from `cloud/`. The generator refuses to overwrite existing keys. Deployments in a different account must replace the account/database IDs.
+## Other API boundaries
 
-## API boundaries
+- GET /health: public readiness booleans only. Checkout readiness requires both product IDs, webhook secret and server enable flag.
+- The former /checkout and /orders flows are removed. Only Shop starts, signed Shop webhooks and authenticated entitlements handle purchases.
+- PUT /consent, POST/GET /samples, DELETE /samples/:id and DELETE /account are authenticated contribution controls. Intake stays off pending consent/provenance review. Account deletion removes contribution data/consent; minimal purchase bindings/records remain for restoration/refunds. Source text, buyer emails and raw webhook payloads are not operational logs.
+- Separate contribution database: 2/account/day, 100 globally/day, 8 KiB/sample, 100 MB payload budget, 30-day raw retention. Private exports apply deletion tombstones; nothing trains automatically. See [training workflow](../tools/training/README.md).
 
-- `GET /health`: public readiness; no library/account data.
-- `POST /orders`, `GET /entitlement`, `POST /orders/verify`: Firebase Google bearer token; server-owned USD product prices. Signed Ed25519 entitlement includes subject, issuer, audience, tier and schema version, with no routine expiry.
-- `/checkout`: short-lived opaque session in the URL fragment, cleared immediately. Server stores only its hash; session verifies against its original order. The checkout return page alone never unlocks the app.
-- `PUT /consent`, `POST/GET /samples`, `DELETE /samples/:id`, `DELETE /account`: authenticated owner access. Last endpoint removes contribution data/consent; the app then deletes Firebase identity. Minimal keyed purchase identity links allow restoration with the same Google identity after account recreation.
-- Contributions: 2/account/day, 100 globally/day, 8 KiB UTF-8 each, 100 MB payload ceiling and 30-day raw retention. Counters survive sample deletion. Minimal owner/ID metadata remains for later withdrawal of exported examples; expiration is distinct from a deletion request. History is paginated. Failed uploads have no bearing on saving/extraction.
-
-## Private laptop pulls
-
-`scripts/Export-Contributions.ps1` uses Wrangler's current-user OAuth store. Optional `-RegisterWeekly` adds Sunday 10:00 plus an overdue-only login trigger, current-user/non-admin, hidden window, network required, no embedded credentials. It skips scheduled pulls within seven days of success. A failed/missed run preserves its checkpoint and retries on a later eligible login/run. Remove through Task Scheduler or `Unregister-ScheduledTask` if unwanted.
-
-The exporter writes private atomic, checksummed batches and acknowledges only verified files; deletes withdrawn examples, invalidates prepared datasets, and purges unreviewed copies after 90 days. It never downloads payment records or exports contributor identity hashes. Keep `.private` outside public sync and restrict it to the laptop user. Prepare/review/train with [training instructions](../tools/training/README.md); training is never scheduled.
-
-## Operations and release gates
-
-Monitor free Worker/D1 quotas, provider webhook deliveries and scheduled-task LastTaskResult. Keep purchase DB backups and signing keys separately secured. Daily read/write quotas can interrupt service; cached purchases and the local library continue. Optional contributions must be paused before they threaten capacity; no automatic paid upgrade.
-
-No app analytics or automatic crash upload is added. Auth tokens are short-lived but token revocation/deletion may take up to their expiry to affect an already-issued server token. Data is protected by HTTPS and provider storage controls, not claimed to be end-to-end encrypted. Review privacy/merchant obligations before live activation.
-
-**Not yet qualified:** production OAuth publishing, multi-device Drive restore and quota/revocation/interruption handling, real Razorpay flows, production signing certificate migration, Redmi extraction performance during cloud work, GPU training or model quality improvement. The Redmi's manual sign-in/upload/merge/restart checks passed; they do not qualify the remaining failure matrix or real payments.
+The private weekly Windows export task remains independent of purchases. It uses protected local credentials, atomic checksummed batches and manual model curation/training. No model improvement or production cloud qualification is claimed from mock tests.

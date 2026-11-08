@@ -14,6 +14,7 @@ import 'contribution_sample.dart';
 import 'drive_backup.dart';
 import 'entitlements.dart';
 import 'tiers.dart';
+import 'shop_purchase.dart';
 
 class CloudServices extends ChangeNotifier {
   CloudServices(
@@ -152,33 +153,43 @@ class CloudServices extends ChangeNotifier {
     _changed();
   }
 
-  Future<void> buy(AppTier product) => run(() async {
-    if (identity.uid == null) {
-      throw StateError('Sign in with Google to purchase and restore a tier.');
-    }
-    if (!CloudConfig.checkoutEnabled || !paymentsLive) {
-      throw StateError(
-        'Checkout is not live in this preview. No payment was taken.',
+  Future<ShopPurchase> preparePurchase(AppTier product) async {
+    ShopPurchase? purchase;
+    await run(() async {
+      final uid = identity.uid;
+      if (uid == null) {
+        throw StateError('Sign in with Google to purchase and restore a tier.');
+      }
+      if (!CloudConfig.checkoutEnabled || !paymentsLive) {
+        throw StateError(
+          'Checkout is not live in this preview. No payment was taken.',
+        );
+      }
+      final response = await api.call(
+        '/shop/start',
+        method: 'POST',
+        body: {'tier': product.name},
       );
+      if (identity.uid != uid) {
+        throw StateError('Account changed. Start the purchase again.');
+      }
+      purchase = ShopPurchase.parse(response, product, accountId: uid);
+    });
+    return purchase!;
+  }
+
+  Future<void> openPurchase(ShopPurchase purchase) async {
+    if (identity.uid != purchase.accountId ||
+        purchase.expires.isBefore(DateTime.now())) {
+      throw StateError('Sign in and start the purchase again.');
     }
-    final response = await api.call(
-      '/orders',
-      method: 'POST',
-      body: {'tier': product.name},
-    );
-    final url = Uri.parse(response['checkout_url'] as String),
-        root = Uri.parse(CloudConfig.backend);
-    if (url.origin != root.origin ||
-        url.path != '/checkout' ||
-        url.fragment.isEmpty) {
-      throw const FormatException('Invalid checkout destination.');
-    }
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    if (!await launchUrl(purchase.url, mode: LaunchMode.externalApplication)) {
       throw StateError('Checkout could not open.');
     }
     _lastRefresh = null;
     _nextAccountCheck = null;
-  });
+  }
+
   Future<void> enableDrive(bool enabled) => run(() async {
     final uid = identity.uid;
     if (uid == null) throw StateError('Sign in to connect Drive.');

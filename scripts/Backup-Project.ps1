@@ -16,6 +16,15 @@ $inherit = [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -b
 foreach ($sid in @($owner, [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18'))) {
     $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'FullControl', $inherit, 'None', 'Allow'))
 }
-Set-Acl -LiteralPath $target.FullName -AclObject $acl
+$current = Get-Acl -LiteralPath $target.FullName
+$rules = @($current.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
+$expectedSids = @($owner.Value, 'S-1-5-18')
+$privateAlready = $current.AreAccessRulesProtected -and $current.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $owner.Value -and $rules.Count -eq 2
+foreach ($rule in $rules) {
+    if ($rule.IdentityReference.Value -notin $expectedSids -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.InheritanceFlags -ne $inherit -or $rule.PropagationFlags -ne 'None') { $privateAlready = $false }
+}
+if (-not $privateAlready) {
+    [System.IO.FileSystemAclExtensions]::SetAccessControl($target, $acl)
+}
 & python (Join-Path $project 'tools/project_backup.py') --project $project --milestone $Milestone
 exit $LASTEXITCODE

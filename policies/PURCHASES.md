@@ -7,19 +7,21 @@ Planned one-time products:
 | Tier | Price | Current saves | Collections | Custom model import |
 | --- | --- | --- | --- | --- |
 | Free | Free | 50 | 5 | No |
-| XL | US$5 once | 150 | 30 | No |
-| XXL | US$10 once | No product quota | No product quota | Compatible models |
+| XL | US$5 once | 250 | 25 | No |
+| XXL | US$7 once | No product quota | No product quota | Compatible models |
 
 English extraction with the built-in optional model and local/Drive backup remain available free. Models are downloaded separately. Current themes are free; future customization is not included as an already delivered feature. Device capacity, compatibility and documented archive safety limits still apply to XXL.
 
-Purchases belong to the Google account used to start checkout in Linqo, rather than the checkout email. Sign in with the same Google identity and choose Restore purchase after reinstalling or switching devices. XL to XXL is a separate **US$10** purchase, not a US$5 prorated upgrade. A donation to Buy Me a Coffee does not unlock XL or XXL.
+Purchases use Buy Me a Coffee **Shop** and belong to the Google account used to start the purchase in Linqo. Copy the single-use code shown in Linqo and enter it when the Shop asks for “Linqo purchase code.” That code is required for automatic account linking; a buyer email, screenshot, order number or redirect page alone cannot grant access. Start in Linqo rather than buying an unlock directly without its code. Sign in with the same Google identity and choose Restore purchase after reinstalling or switching devices. XL to XXL is a separate **US$7** purchase, with no prorated upgrade initially. Ordinary donations do not unlock XL or XXL.
 
-Linqo uses server-verified captured Razorpay payments; an authorization/pending transaction or return-page message alone is not an unlock. Existing signed unlocks remain usable offline. Refund/revocation checks happen when online. Refunds revert to the highest remaining valid tier; data remains readable/editable/searchable/exportable/deletable above the resulting limit, with new additions blocked. Duplicate receipts do not stack tier quotas.
+Linqo verifies signed, live Shop purchase events, configured product IDs, fixed USD prices and the pre-issued account code. Test events and donations grant no tier. Reusing a code does not create another licence. One product with quantity one is supported per order; discounts, mixed carts, gifts and transferable licences are not currently supported. A missing or invalid code needs private support review; the app never guesses ownership from email. Webhook delivery or outages may delay an unlock; contact support with the Shop order reference if Restore purchase does not resolve it.
+
+Existing signed unlocks remain usable offline. Refund/revocation checks happen when online. A verified Shop refund invalidates that order's unlock, falling back to a separately purchased valid XL when applicable, otherwise Free. Delayed purchase events cannot undo a refund. Data remains readable/editable/searchable/exportable/deletable above the resulting limit, with new additions blocked. Duplicate orders do not stack tier quotas.
 
 ## Refund/support process before activation
 
 The merchant must publish actual seller identity, private support contact and any required business disclosures on the checkout/support page, and review applicable consumer/tax obligations. Those details must not be invented by the app or inferred from a GitHub handle.
 
-For technical non-delivery, duplicate payment or a refund request, use the private merchant contact shown at checkout and supply the Razorpay payment reference privately. Verify capture, account ownership and applicable rights before processing a refund through Razorpay. Do not promise that all provider processing fees will be refunded. Applicable consumer rights remain in force.
+For technical non-delivery, duplicate payment or a refund request, contact gamer12773@gmail.com privately and supply the Buy Me a Coffee Shop order reference. Verify payment, account ownership and applicable rights before processing a refund through Buy Me a Coffee. Do not promise that all provider processing fees will be refunded. Applicable consumer rights remain in force. Final refund eligibility and processing timelines must be confirmed by the creator before enabling sales.
 
-Live setup must confirm USD/international approval and supported buyer/payment-method combinations. No unapproved currency conversion or alternative INR price is charged. If checkout is unavailable, keep the preview unlimited and do not accept payment through an unverified workaround.
+Live setup must confirm the creator's payout status and supported buyer/payment-method combinations. Fixed products are USD; no alternative INR price is charged by Linqo. If checkout is unavailable, keep the preview unlimited. Creator payout/transaction fees and applicable tax obligations remain the creator's responsibility; this integration does not claim to handle all tax compliance.

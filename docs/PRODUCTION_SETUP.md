@@ -1,6 +1,6 @@
 # Production account setup and acceptance
 
-Linqo remains in active development. The owner confirmed OAuth Audience **In production** and Data Access **Verification not required** on 2026-11-08. Branding rejected the Firebase homepage as not registered to the owner. The owner chose to leave branding pending rather than register a custom domain now. This is not Google brand approval or live merchant activation. Paid limits, checkout and contribution intake remain disabled. Contributions are also gated off in the client: stored opt-in cannot queue/send source text or enable the switch. Before a future build lifts that gate, audit restored Google/Drive provenance and exclude it from training; the current implementation's public-source flags alone are insufficient for that review.
+Linqo remains in active development. The owner confirmed OAuth Audience **In production** and Data Access **Verification not required** on 2026-11-08. Branding rejected the Firebase homepage as not registered to the owner. The owner chose to leave branding pending rather than register a custom domain now. This is not Google brand approval or live Shop purchase acceptance. Paid limits, checkout and contribution intake remain disabled. Contributions are also gated off in the client: stored opt-in cannot queue/send source text or enable the switch. Before a future build lifts that gate, audit restored Google/Drive provenance and exclude it from training; the current implementation's public-source flags alone are insufficient for that review.
 
 ## Public OAuth pages
 
@@ -44,16 +44,12 @@ The normal app then completed four verified uploads at 00:58:34, 00:58:43, 00:58
 
 Still required: genuine second-device identity acceptance; explicit account-switch consent on real accounts; provider full-storage behavior where a suitable test account exists; elapsed-day scheduling/backoff; physical-device interruption/revocation cases; attachment/corrupt-archive acceptance in a separately registered QA app; Redmi scrolling/extraction under cloud-related memory and lifecycle pressure. Mock coverage and same-phone reinstall recovery are not physical multi-device acceptance.
 
-## Owner's Razorpay steps
+## Owner's Shop purchase steps
 
-1. Sign up/sign in at https://dashboard.razorpay.com. The owner enters identity/PAN/bank details and accepts merchant terms directly. Never share these details, passwords or OTPs in chat or Git.
-2. Select the truthful business type/category and complete onboarding/KYC. Confirm whether the account is individual/freelancer or registered business. Razorpay's current international-payments documentation routes individual/freelancer international acceptance through PayPal; the existing card checkout must not be enabled on an unapproved assumption. Check the dashboard/support decision for this specific account and intended countries.
-3. Supply the real merchant identity and finalize support/refund terms, processing timeframes and required business disclosures before presenting the policy pages as live-sales-ready. Current pages explicitly state checkout is unavailable; draft purchase disclosures are not proof of merchant approval.
-4. Request the approved international/USD method. Planned products remain XL US$5 once and XXL US$10 once, with no invented INR conversion. Verify domestic buyer support separately. An XL owner purchasing XXL pays the full US$10, disclosed before checkout.
-5. After activation, create keys in the provider dashboard. Enter live `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` directly through Wrangler's local interactive secret prompt or Cloudflare Worker secrets. Do not paste values into chat, Flutter defines, source, task arguments or screenshots. Keep test payments in a separate staging Worker/database; test keys cannot grant production entitlements.
-6. Register `https://linqo-cloud.aryandurgude123.workers.dev/webhooks/razorpay` for `payment.captured`, `order.paid` and `refund.processed`, using the same private webhook secret configured on the Worker.
-7. Complete authorized real capture, settlement, restoration on another device/reinstall, full/partial refund and delayed/duplicate webhook acceptance. Only then enable public checkout/limits. No live key, charge, refund or paid-limit activation has been performed in this setup pass.
+The active purchase provider is now Buy Me a Coffee Shop. Follow [the setup and acceptance guide](BMC_SHOP_SETUP.md): XL US$5 once (250 saves/25 collections), XXL US$7 once (unlimited saves/collections and compatible custom-model imports). Draft product IDs are 596224 and 596225. Ordinary donations do not grant a tier.
 
-Buy Me a Coffee remains a voluntary donation link and does not grant a tier. Hosting free tiers do not remove Razorpay/PayPal transaction fees.
+Google-bound one-time purchase codes replace buyer-email matching. Signed live Shop events validate product, amount, currency and code; the same Google identity restores its highest valid tier. Donation/membership events and dashboard test events never grant access. Refund tombstones dominate delayed purchase events. No email provider or payment SDK is added.
 
-Reference: [Razorpay international onboarding and business-type requirements](https://razorpay.com/docs/payments/international-payments).
+The former checkout page/routes/provider API calls are removed. Migration 0002 retires legacy orders/payments only if empty, preserving account identity links. Its guard fails rather than deleting financial records. Checkout/paid limits remain disabled pending live payment, restoration and refund acceptance. The owner reports payouts verified and saved both Shop drafts in Chrome after the form failed in Helium. Webhook-secret/test-delivery and required-question checks still need confirmation.
+
+Buy Me a Coffee transaction and payout fees remain applicable. Hosting free tiers do not make payment processing fee-free.

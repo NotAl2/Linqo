@@ -5,10 +5,30 @@ import '../services/cloud_services.dart';
 import '../services/drive_backup.dart';
 import '../services/tiers.dart';
 import 'components.dart';
+import 'shop_purchase_dialog.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key, required this.controller});
   final LibraryController controller;
+  Future<void> _buy(
+    BuildContext context,
+    CloudServices cloud,
+    AppTier tier,
+  ) async {
+    await _act(context, () async {
+      final purchase = await cloud.preparePurchase(tier);
+      if (!context.mounted) return;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (_) => ShopPurchaseDialog(
+          purchase: purchase,
+          accountLabel: cloud.identity.email ?? 'your signed-in Google account',
+        ),
+      );
+      if (proceed == true) await cloud.openPurchase(purchase);
+    });
+  }
+
   Future<void> _act(
     BuildContext context,
     Future<void> Function() action,
@@ -243,22 +263,22 @@ class AccountScreen extends StatelessWidget {
                     _TierRow(
                       tier: AppTier.xl,
                       title: 'XL · US\$5 once',
-                      description: '150 saves · 30 collections',
+                      description: '250 saves · 25 collections',
                       cloud: cloud,
-                      action: () => _act(context, () => cloud.buy(AppTier.xl)),
+                      action: () => _buy(context, cloud, AppTier.xl),
                     ),
                     const Divider(height: 28),
                     _TierRow(
                       tier: AppTier.xxl,
-                      title: 'XXL · US\$10 once',
+                      title: 'XXL · US\$7 once',
                       description:
                           'Unlimited saves and collections · import compatible custom models',
                       cloud: cloud,
-                      action: () => _act(context, () => cloud.buy(AppTier.xxl)),
+                      action: () => _buy(context, cloud, AppTier.xxl),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'XL → XXL is a separate US\$10 purchase. Donations through Buy Me a Coffee do not unlock a tier. Future customization is not available yet.',
+                      'Purchases use Buy Me a Coffee Shop. XL → XXL is a separate US\$7 purchase. Ordinary donations do not unlock a tier. Future customization is not available yet.',
                     ),
                     if (signedIn)
                       TextButton.icon(

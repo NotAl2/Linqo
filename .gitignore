@@ -56,3 +56,4 @@ __pycache__/
 !docs/PRODUCTION_SETUP.md
 .project-backups/
 !docs/PROJECT_BACKUPS.md
+!docs/BMC_SHOP_SETUP.md
