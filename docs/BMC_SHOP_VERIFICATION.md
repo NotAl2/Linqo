@@ -51,3 +51,10 @@ Google brand/domain verification remains pending at the owner's request. Require
 - Google-authenticated Choose XL produced the native US$5 / 250-save / 25-collection dialog and a valid-format purchase code on the phone. Copy code and Open Shop were exercised, handing off to the external browser. No payment has been submitted. Real checkout question, captured-payment linking, settlement, restoration and refund acceptance remain pending.
 
 - The external browser displayed Buy Me a Coffee 404 for the unpublished XL item. Requested the owner publish only XL for the controlled form check; XXL remains a draft. No card/payment details were entered or submitted. Blank-answer enforcement and real financial acceptance are still unverified. The owner must reload the product after publishing and stop before payment.
+
+## Shop verification unblocked; configuration gate — 2026-11-08
+
+- The owner confirmed the copied public XL link exactly matches the generated URL. Both the direct and www-redirected link still returned 404 during the initial check, while the creator profile returned 200; no application URL change was justified.
+- The owner subsequently completed account verification and reported the item works. The Redmi browser now visibly loads Linqo XL with “250 saves, 25 collections,” confirming the public item is accessible. XXL publication has not been confirmed and should remain a draft.
+- The page displays INR ₹470.45 and an “Enter a fair price” field with a plus suffix. This is not the required fixed-USD acceptance configuration. Requested pay-what-you-want off and the base XL price USD $5. Creator Localized Pricing must also be off for the initial USD-only webhook validator. USD payout settlement alone does not demonstrate USD event currency.
+- No Add to cart or payment submission was performed in this check. Required code-answer behavior, live payment linkage, refund and restoration remain unverified. Existing phone data and paid-limit flags were not changed.

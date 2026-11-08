@@ -9,7 +9,7 @@ Active development; checkout and paid limits stay off until live acceptance. Ord
 | Linqo XL | $5 | 250 | 25 | No | 596224 |
 | Linqo XXL | $7 | No product quota | No product quota | Compatible models | 596225 |
 
-The owner saved both drafts using Chrome after the form failed in Helium. Continue using Chrome for setup. Under Advanced Settings add **Linqo purchase code** as the question and make it required where supported. Keep quantity selection, member pricing, discounts and pay-what-you-want off. Launch supports one product/quantity one per order.
+The owner saved both drafts using Chrome after the form failed in Helium. Continue using Chrome for setup. Under Advanced Settings add **Linqo purchase code** as the question and make it required where supported. Keep quantity selection, member pricing, discounts and pay-what-you-want off. Launch supports one product/quantity one per order. In creator Settings, keep the base currency USD and disable Localized Pricing for this initial USD-only integration; the backend deliberately rejects non-USD events. Confirm the public product has a fixed US$5/US$7 price with no “Enter a fair price” input before a payment test. Do not infer webhook currency from the USD payout currency.
 
 Suggested descriptions:
 
@@ -49,4 +49,4 @@ A real purchase/refund cannot be certified by unit fixtures or dashboard test ev
 
 See [build/deployment verification](BMC_SHOP_VERIFICATION.md) for test counts, artifact/signing hashes and remaining release gates.
 
-Official references: [Shop setup](https://help.buymeacoffee.com/en/articles/9905719-a-complete-guide-on-buy-me-a-coffee-shop), [signed webhooks](https://help.buymeacoffee.com/en/articles/15743173-how-to-setup-and-use-buy-me-a-coffee-webhooks), [event schema](https://cdn.buymeacoffee.com/assets/integrations/bmc-webhooks-openapi.json), [fees](https://help.buymeacoffee.com/en/articles/8105744-how-to-calculate-charges-on-your-payment).
+Official references: [localized pricing and currency settings](https://help.buymeacoffee.com/en/articles/10202407-buy-me-a-coffee-advanced-settings-explained), [Shop setup](https://help.buymeacoffee.com/en/articles/9905719-a-complete-guide-on-buy-me-a-coffee-shop), [signed webhooks](https://help.buymeacoffee.com/en/articles/15743173-how-to-setup-and-use-buy-me-a-coffee-webhooks), [event schema](https://cdn.buymeacoffee.com/assets/integrations/bmc-webhooks-openapi.json), [fees](https://help.buymeacoffee.com/en/articles/8105744-how-to-calculate-charges-on-your-payment).
