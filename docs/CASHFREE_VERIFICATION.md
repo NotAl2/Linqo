@@ -21,7 +21,7 @@ Active development. Indian one-time prices chosen by the owner: XL ₹449 and XX
 
 Cashfree credentials and provider-originated sandbox/live tests are not yet available. Account/KYC access was reported active, but the screenshot explicitly says Payment Gateway product is not activated. No real Cashfree payment was made. Domain approval, domestic PG activation, provider sandbox execution, settlement, actual second-device restoration, refunds, dispute policy and final seller disclosures remain release gates.
 
-The old deployed backend was last observed with its temporary Shop window enabled; disabling it failed because Wrangler login was unavailable. The new local server config defaults off. Remote migration/deployment and public-site publication must be reported separately after verification, not inferred from local tests.
+The initial attempt to disable the old Shop window was blocked by missing Cloudflare authorization. The subsequent verified deployment below supersedes that state: Cashfree is now deployed with checkout disabled.
 
 Project backups are private, verified and retain the newest three beside the project. No phone has been modified by this provider-switch implementation so far.
 
@@ -34,3 +34,13 @@ Project backups are private, verified and retain the newest three beside the pro
 ARM64 APK `.tools/Linqo-v0.9.0-cashfree-preview-android-arm64.apk`: **74,815,335 bytes**, SHA-256 `428cc5f100b73a7ef4d5491ad6f6ac86fe94aad57634bd6af243f1588999ddff`. Final source includes checkout availability in authenticated entitlement responses so sign-in/restoration does not leave availability stale. The final backend tests pass after this change. The release compile verifies the corresponding client response fields.
 
 The APK's 336-entry scan found expected public Firebase configuration and no known private server credential values. Client checkout and paid limits are false. Logs: `.tools/cashfree-release-build.log`. Existing KGP/SDK XML/plugin warnings remain toolchain maintenance work; no unrelated SDK/dependency upgrade was attempted. This is a local beta artifact, not a GitHub release or proof of production signing qualification.
+
+## Verified deployment — 2026-11-09
+
+- Fresh Cloudflare device authorization completed. Before migration, remote counts were purchases=0, refunds=0, Shop sessions=2 and account_links=1. A protected D1 recovery export was saved locally (`purchases-before-cashfree-20261109T071936Z.sql`, 2,261 bytes, SHA-256 `0c724c4990c62793d7b6c705b20650d752de2b1670d7e52c7456ae1dcd349c34`). No private rows or signed download URLs were printed.
+- The owner confirmed Shop items were deactivated. Fresh public checks of both configured item URLs returned HTTP 404. The donation page is retained.
+- Guarded migration 0003 applied, then the Cashfree Worker source deployed (source deployment ID `776963a4-777f-4f34-8e88-38075b17d3df`). Health returned HTTP 200 with provider=cashfree, sandbox=true, payments_enabled=false and contributions_enabled=false. Client paid limits remain off.
+- Retired `/shop/start` and `/webhooks/buymeacoffee` return 404. Cashfree's unsigned sandbox webhook returns 401 invalid_signature; unauthenticated checkout start returns 401 sign_in_required. A forged success query on the return page does not confirm payment.
+- Removed only BMC_WEBHOOK_SECRET from the deployed Worker after replacement. Existing ACCOUNT_HMAC_SECRET, CONTRIBUTOR_HMAC_SECRET and ENTITLEMENT_PRIVATE_JWK remain encrypted Worker secrets. Protected recovery copies remain in project backups. Cashfree keys have not been configured yet; no sandbox or real payment was attempted.
+- Firebase Hosting pages were deployed successfully. Public purchase policy returned HTTP 200 with Cashfree, ₹449/₹649 and the checkout-not-live notice. Active development remains explicit.
+- Post-migration verification confirms empty Cashfree order/payment/refund tables, the existing Google identity link preserved and no retired Shop tables. No app uninstall, phone data reset or new APK installation was performed during this deployment.
