@@ -291,7 +291,7 @@ class AccountScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Purchases use Buy Me a Coffee Shop. XL → XXL is a separate ₹649 purchase. Ordinary donations do not unlock a tier. Future customization is not available yet.',
+                      'Purchases use Cashfree in INR. XL → XXL is a separate ₹649 purchase. Ordinary donations do not unlock a tier. Future customization is not available yet.',
                     ),
                     if (signedIn)
                       TextButton.icon(
