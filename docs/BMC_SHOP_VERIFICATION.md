@@ -58,3 +58,10 @@ Google brand/domain verification remains pending at the owner's request. Require
 - The owner subsequently completed account verification and reported the item works. The Redmi browser now visibly loads Linqo XL with “250 saves, 25 collections,” confirming the public item is accessible. XXL publication has not been confirmed and should remain a draft.
 - The page displays INR ₹470.45 and an “Enter a fair price” field with a plus suffix. This is not the required fixed-USD acceptance configuration. Requested pay-what-you-want off and the base XL price USD $5. Creator Localized Pricing must also be off for the initial USD-only webhook validator. USD payout settlement alone does not demonstrate USD event currency.
 - No Add to cart or payment submission was performed in this check. Required code-answer behavior, live payment linkage, refund and restoration remain unverified. Existing phone data and paid-limit flags were not changed.
+
+## Fixed-price public item check — 2026-11-09
+
+- After the owner corrected the product's publication state, a fresh request to the configured XL URL returned HTTP 200. Reloading Chrome on the Redmi showed the same live item and no “Enter a fair price” field.
+- The owner reports pay-what-you-want and Localized Pricing are off. Chrome still displays INR (₹469.26); fixed USD checkout is not yet verified. Requested the owner choose USD in the page footer and confirm $5 before proceeding.
+- Automatic approval review rejected the assistant's footer currency-selector tap as potentially entering a payment flow. The action was not bypassed. The owner was asked to manually select USD, add the item to the cart and inspect the question, stopping before payment and without entering card data.
+- Purchase-code requiredness, real payment and restoration remain pending. No payment submission or app-data reset occurred. The controlled server checkout window remains enabled; paid limits and contributions stay disabled.
