@@ -65,3 +65,9 @@ Google brand/domain verification remains pending at the owner's request. Require
 - The owner reports pay-what-you-want and Localized Pricing are off. Chrome still displays INR (₹469.26); fixed USD checkout is not yet verified. Requested the owner choose USD in the page footer and confirm $5 before proceeding.
 - Automatic approval review rejected the assistant's footer currency-selector tap as potentially entering a payment flow. The action was not bypassed. The owner was asked to manually select USD, add the item to the cart and inspect the question, stopping before payment and without entering card data.
 - Purchase-code requiredness, real payment and restoration remain pending. No payment submission or app-data reset occurred. The controlled server checkout window remains enabled; paid limits and contributions stay disabled.
+
+## Recurring provider verification blocker — 2026-11-09
+
+- The owner reports the product returned to 404 and the identity-verification banner reappeared after completing KYC. This prevents further real checkout acceptance; no conclusion about approval/rejection is possible from the banner alone. Requested exact verification status and provider support review if it persists.
+- Attempted to restore the checked-in PAYMENTS_ENABLED=false deployment. Wrangler failed before deployment because local Cloudflare authentication was unavailable in the non-interactive session. No temporary account was created and no credentials were requested in chat. A subsequent health check still returned payments_enabled=true and contributions_enabled=false. Do not claim server checkout was disabled.
+- Owner was given dashboard steps to set PAYMENTS_ENABLED=false and deploy until verification is resolved. Paid limits stay off, no payment was submitted, and the phone's app data/model/settings were not modified in this check.
