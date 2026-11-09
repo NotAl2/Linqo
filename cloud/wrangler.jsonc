@@ -8,8 +8,9 @@
   "vars": {
     "FIREBASE_PROJECT_ID": "linqo-app-notal2",
     "PAYMENTS_ENABLED": "false",
-    "BMC_XL_PRODUCT_ID": "596224",
-    "BMC_XXL_PRODUCT_ID": "596225",
+    "CASHFREE_MODE": "sandbox",
+    "CASHFREE_LIVE_APPROVED": "false",
+    "CHECKOUT_ORIGIN": "https://linqo-cloud.aryandurgude123.workers.dev",
     "CONTRIBUTIONS_ENABLED": "false",
     "KEY_ID": "v1"
   },

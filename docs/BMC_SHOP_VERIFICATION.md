@@ -1,3 +1,5 @@
+> Historical Shop integration, retired on 2026-11-09. Do not follow these activation steps. Current purchases use [Cashfree](CASHFREE_SETUP.md); Buy Me a Coffee is donations only.
+
 # Shop migration verification — v0.9.0+18
 
 Active development. Implementation and controlled fixtures pass; real Shop payment/restoration/refund acceptance is still pending. Normal-build checkout, paid limits and contributions remain disabled. The controlled server checkout window is noted below.

@@ -14,7 +14,7 @@ import 'contribution_sample.dart';
 import 'drive_backup.dart';
 import 'entitlements.dart';
 import 'tiers.dart';
-import 'shop_purchase.dart';
+import 'checkout_purchase.dart';
 
 class CloudServices extends ChangeNotifier {
   CloudServices(
@@ -46,6 +46,9 @@ class CloudServices extends ChangeNotifier {
       contributions = false,
       paymentsLive = false;
   bool foreground = true, _disposed = false;
+  bool sandboxCheckout = true;
+  String? _checkoutRequestId, _checkoutAccount, _checkoutPhone;
+  AppTier? _checkoutProduct;
   String status = '', error = '';
   String? lastBackup;
   Timer? _timer;
@@ -82,6 +85,9 @@ class CloudServices extends ChangeNotifier {
     contributions = false;
     _sample = null;
     _nextAccountCheck = null;
+    paymentsLive = false;
+    _checkoutRequestId = _checkoutAccount = _checkoutPhone = null;
+    _checkoutProduct = null;
     if (uid != null) {
       final previous = await store.preference('last_cloud_account');
       if (previous != null && previous != uid) {
@@ -149,12 +155,17 @@ class CloudServices extends ChangeNotifier {
     await store.setPreference('entitlement_$uid', token);
     _tier = restored;
     _tierOwner = uid;
+    paymentsLive = response['payments_enabled'] == true;
+    sandboxCheckout = response['sandbox'] != false;
     _lastRefresh = DateTime.now();
     _changed();
   }
 
-  Future<ShopPurchase> preparePurchase(AppTier product) async {
-    ShopPurchase? purchase;
+  Future<CheckoutPurchase> preparePurchase(
+    AppTier product,
+    String phone,
+  ) async {
+    CheckoutPurchase? purchase;
     await run(() async {
       final uid = identity.uid;
       if (uid == null) {
@@ -165,20 +176,45 @@ class CloudServices extends ChangeNotifier {
           'Checkout is not live in this preview. No payment was taken.',
         );
       }
-      final response = await api.call(
-        '/shop/start',
-        method: 'POST',
-        body: {'tier': product.name},
-      );
+      if (_checkoutAccount != uid ||
+          _checkoutProduct != product ||
+          _checkoutPhone != phone) {
+        _checkoutRequestId = newPurchaseRequestId();
+        _checkoutAccount = uid;
+        _checkoutProduct = product;
+        _checkoutPhone = phone;
+      }
+      Map<String, dynamic> response;
+      try {
+        response = await api.call(
+          '/checkout/start',
+          method: 'POST',
+          body: {
+            'tier': product.name,
+            'phone': phone,
+            'request_id': _checkoutRequestId,
+          },
+        );
+      } on CloudRequestError catch (error) {
+        if (error.code == 'purchase_request_expired') {
+          _checkoutRequestId = _checkoutPhone = null;
+        }
+        rethrow;
+      }
       if (identity.uid != uid) {
         throw StateError('Account changed. Start the purchase again.');
       }
-      purchase = ShopPurchase.parse(response, product, accountId: uid);
+      purchase = CheckoutPurchase.parse(
+        response,
+        product,
+        accountId: uid,
+        checkoutOrigin: CloudConfig.backend,
+      );
     });
     return purchase!;
   }
 
-  Future<void> openPurchase(ShopPurchase purchase) async {
+  Future<void> openPurchase(CheckoutPurchase purchase) async {
     if (identity.uid != purchase.accountId ||
         purchase.expires.isBefore(DateTime.now())) {
       throw StateError('Sign in and start the purchase again.');
@@ -284,6 +320,7 @@ class CloudServices extends ChangeNotifier {
               );
               final health = await api.call('/health');
               paymentsLive = health['payments_enabled'] == true;
+              sandboxCheckout = health['sandbox'] != false;
               await restorePurchase();
               _nextAccountCheck = DateTime.now().add(const Duration(hours: 1));
             }

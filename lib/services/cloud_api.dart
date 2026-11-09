@@ -4,6 +4,11 @@ import 'package:http/http.dart' as http;
 import 'account_identity.dart';
 import 'cloud_config.dart';
 
+class CloudRequestError extends StateError {
+  CloudRequestError(this.code, super.message);
+  final String code;
+}
+
 class CloudApi {
   CloudApi(this.identity, {http.Client? client})
     : client = client ?? http.Client();
@@ -40,18 +45,27 @@ class CloudApi {
     }
     final value = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError(switch (value['error']) {
-        'checkout_not_live' =>
-          'Checkout is not live yet. No payment was taken.',
-        'try_tomorrow' =>
-          'Too many purchase attempts today. Try again tomorrow.',
-        'contribution_not_accepted' =>
-          'Contribution allowance reached or sample already received.',
-        'contributions_paused' =>
-          'Contributions are paused. Your library is unaffected.',
-        'sign_in_required' => 'Sign in again to reconnect.',
-        _ => 'Cloud request could not finish. Try again later.',
-      });
+      throw CloudRequestError(
+        value['error'] is String ? value['error'] as String : 'request_failed',
+        switch (value['error']) {
+          'checkout_not_live' =>
+            'Checkout is not live yet. No payment was taken.',
+          'try_tomorrow' =>
+            'Too many purchase attempts today. Try again tomorrow.',
+          'invalid_checkout_phone' =>
+            'Enter a phone number with + and country code.',
+          'purchase_request_expired' =>
+            'Checkout expired. Close this screen and start again.',
+          'payment_provider_unavailable' =>
+            'Cashfree could not connect. Retry checkout; your saves are safe.',
+          'contribution_not_accepted' =>
+            'Contribution allowance reached or sample already received.',
+          'contributions_paused' =>
+            'Contributions are paused. Your library is unaffected.',
+          'sign_in_required' => 'Sign in again to reconnect.',
+          _ => 'Cloud request could not finish. Try again later.',
+        },
+      );
     }
     return value;
   }

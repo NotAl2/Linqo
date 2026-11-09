@@ -58,3 +58,7 @@ __pycache__/
 !docs/PROJECT_BACKUPS.md
 !docs/BMC_SHOP_SETUP.md
 !docs/BMC_SHOP_VERIFICATION.md
+
+!docs/CASHFREE_SETUP.md
+!docs/CASHFREE_VERIFICATION.md
+!docs/DEV_TOOLS.md

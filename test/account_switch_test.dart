@@ -3,7 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/library/library_store.dart';
 import 'package:linqo/services/account_identity.dart';
 import 'package:linqo/services/cloud_services.dart';
-import 'package:linqo/services/shop_purchase.dart';
+import 'package:linqo/services/checkout_purchase.dart';
 import 'package:linqo/services/tiers.dart';
 
 class _SwitchIdentity implements AccountIdentity {
@@ -53,10 +53,11 @@ void main() {
         refreshed: () async {},
       );
       try {
-        final purchase = ShopPurchase(
+        final purchase = CheckoutPurchase(
           tier: AppTier.xl,
-          code: 'LQ-${'A' * 32}',
-          url: Uri.parse('https://buymeacoffee.com/notal2/e/101'),
+          orderId: 'lq_p_12345678-1234-4123-8123-123456789abc',
+          sandbox: false,
+          url: Uri.parse('https://linqo.example/checkout/${'a' * 64}'),
           expires: DateTime.now().add(const Duration(days: 1)),
           accountId: 'different',
         );

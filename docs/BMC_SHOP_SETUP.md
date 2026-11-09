@@ -1,3 +1,5 @@
+> Historical Shop integration, retired on 2026-11-09. Do not follow these activation steps. Current purchases use [Cashfree](CASHFREE_SETUP.md); Buy Me a Coffee is donations only.
+
 # Buy Me a Coffee Shop setup
 
 Active development; checkout and paid limits stay off until live acceptance. Ordinary support donations never grant XL/XXL. The owner reports existing payouts verified. Google Audience is In production; branding remains pending separately.

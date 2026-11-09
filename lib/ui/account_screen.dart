@@ -5,7 +5,7 @@ import '../services/cloud_services.dart';
 import '../services/drive_backup.dart';
 import '../services/tiers.dart';
 import 'components.dart';
-import 'shop_purchase_dialog.dart';
+import 'checkout_dialog.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key, required this.controller});
@@ -16,16 +16,23 @@ class AccountScreen extends StatelessWidget {
     AppTier tier,
   ) async {
     await _act(context, () async {
-      final purchase = await cloud.preparePurchase(tier);
-      if (!context.mounted) return;
-      final proceed = await showDialog<bool>(
+      final account = cloud.identity.uid;
+      final sandbox = cloud.sandboxCheckout;
+      final phone = await showDialog<String>(
         context: context,
-        builder: (_) => ShopPurchaseDialog(
-          purchase: purchase,
+        builder: (_) => CheckoutDialog(
+          tier: tier,
+          sandbox: sandbox,
           accountLabel: cloud.identity.email ?? 'your signed-in Google account',
         ),
       );
-      if (proceed == true) await cloud.openPurchase(purchase);
+      if (phone == null) return;
+      if (cloud.identity.uid != account)
+        throw StateError('Account changed. Start checkout again.');
+      final purchase = await cloud.preparePurchase(tier, phone);
+      if (purchase.sandbox != sandbox)
+        throw StateError('Checkout mode changed. Start checkout again.');
+      await cloud.openPurchase(purchase);
     });
   }
 
@@ -259,10 +266,16 @@ class AccountScreen extends StatelessWidget {
                     const Text(
                       'Free · 50 saves and 5 collections\nBuilt-in English AI and backups remain free.',
                     ),
+                    if (cloud.paymentsLive && cloud.sandboxCheckout) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Cashfree sandbox · test payments do not unlock paid tiers.',
+                      ),
+                    ],
                     const Divider(height: 28),
                     _TierRow(
                       tier: AppTier.xl,
-                      title: 'XL · US\$5 once',
+                      title: 'XL · ₹449 once',
                       description: '250 saves · 25 collections',
                       cloud: cloud,
                       action: () => _buy(context, cloud, AppTier.xl),
@@ -270,7 +283,7 @@ class AccountScreen extends StatelessWidget {
                     const Divider(height: 28),
                     _TierRow(
                       tier: AppTier.xxl,
-                      title: 'XXL · US\$7 once',
+                      title: 'XXL · ₹649 once',
                       description:
                           'Unlimited saves and collections · import compatible custom models',
                       cloud: cloud,
@@ -278,7 +291,7 @@ class AccountScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Purchases use Buy Me a Coffee Shop. XL → XXL is a separate US\$7 purchase. Ordinary donations do not unlock a tier. Future customization is not available yet.',
+                      'Purchases use Buy Me a Coffee Shop. XL → XXL is a separate ₹649 purchase. Ordinary donations do not unlock a tier. Future customization is not available yet.',
                     ),
                     if (signedIn)
                       TextButton.icon(
