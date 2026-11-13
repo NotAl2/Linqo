@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 build 27 — Polar paid beta
+
+- Enable account-bound Polar checkout for XL ₹449 / XXL ₹649, preserving Free limits and historical purchase restoration.
+- Show purchase/refund, privacy and terms before checkout; clarify sign-in and unavailable states.
+- Publish supplier name/country/contact and consistent paid-beta disclosures. Donations and training uploads stay separate.
+
+
 ## 0.9.1 build 26 — offline policy reader fix
 
 - Normalize Windows line endings so bundled legal notices display separate headings and readable body paragraphs.

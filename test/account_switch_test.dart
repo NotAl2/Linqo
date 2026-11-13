@@ -114,6 +114,13 @@ class _RaceCloud extends CloudServices {
   EntitlementVerifier get verifier => _FixtureVerifier();
 }
 
+class _ConsentCloud extends CloudServices {
+  _ConsentCloud(super.store, AccountIdentity identity)
+    : super(identity: identity, idle: () => false, refreshed: () async {});
+  @override
+  Future<void> restorePurchase() async {}
+}
+
 void main() {
   sqfliteFfiInit();
   test(
@@ -337,12 +344,7 @@ void main() {
       await store.setPreference('last_cloud_account', 'a');
       await store.setPreference('drive_enabled_b', '1');
       final identity = _SwitchIdentity();
-      final cloud = CloudServices(
-        store,
-        identity: identity,
-        idle: () => false,
-        refreshed: () async {},
-      );
+      final cloud = _ConsentCloud(store, identity);
       try {
         await cloud.initialize();
         await cloud.signOut();

@@ -224,7 +224,11 @@ class LabController extends ChangeNotifier {
       phase = modelLoaded ? LabPhase.ready : LabPhase.idle;
     } catch (_) {
       if (modelLoaded) {
-        await _runtime.unload();
+        try {
+          await _runtime.unload();
+        } catch (_) {
+          // A failed cleanup must not leave model operations permanently busy.
+        }
         modelLoaded = false;
       }
       model = null;

@@ -170,6 +170,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(TextFormField), findsNothing);
     expect(find.textContaining('Merchant of Record'), findsOneWidget);
+    expect(find.text('Purchase & refund policy'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
+    expect(find.textContaining('15 calendar days'), findsOneWidget);
     await tester.tap(find.text('Continue to Polar'));
     await tester.pumpAndSettle();
     expect(result, '');

@@ -4,7 +4,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 **Linqo is still in active development.** The current Android release is an early preview: features, previews and extraction quality are evolving. Keep originals of important files and export a library backup regularly. Cloud sync is not implemented.
 
-[Earlier previews](https://github.com/NotAl2/Linqo/releases) · [Try the v0.9.1 prebuild](https://github.com/NotAl2/Linqo/releases/tag/v0.9.1) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
+[Earlier previews](https://github.com/NotAl2/Linqo/releases) · [Try the v0.9.2 beta](https://github.com/NotAl2/Linqo/releases/tag/v0.9.2) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
 
 <p align="center">
   <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
@@ -39,6 +39,15 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
 ## Development updates
+
+### v0.9.2 paid beta · build 27
+
+Polar payments are enabled in v0.9.2. Earlier v0.9.1 builds remain payment-disabled; update to this beta to purchase. No subscription is charged.
+
+Linqo remains in active development. New purchases use account-bound Polar checkout: **XL ₹449 once (500 saves / 30 collections)** or **XXL ₹649 once (no product quotas, compatible custom-model import)**. Free remains **100 saves / 5 collections**, including built-in English extraction and backups. Sign in with Google to purchase/restore; local use needs no account. XL-to-XXL costs the full XXL price in addition to XL. INR only; payment methods and country availability depend on Polar eligibility. Donations are voluntary and separate from purchases. See [purchase/refund terms](policies/PURCHASES.md) for the 15-day full-refund request window and mandatory rights. Planned model/customization benefits are not delivered features.
+
+Software supplier and support/privacy contact: **Aryan Durgude (NotAl2), India**, **aryandurgude123@gmail.com**. Polar is the payment seller for hosted checkout. The payment-disabled notes below describe earlier builds.
+
 
 ### v0.9.1 prebuild · build 26
 

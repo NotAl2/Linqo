@@ -19,6 +19,14 @@ class AccountScreen extends StatelessWidget {
     CloudServices cloud,
     AppTier tier,
   ) async {
+    if (cloud.identity.uid == null) {
+      await _act(context, cloud.signIn);
+      return;
+    }
+    if (!cloud.paymentsLive) {
+      await _act(context, () => cloud.run(cloud.restorePurchase));
+      return;
+    }
     await _act(context, () async {
       final account = cloud.identity.uid;
       final sandbox = cloud.sandboxCheckout;
@@ -342,14 +350,17 @@ class AccountScreen extends StatelessWidget {
                     Text(
                       checkoutAvailable
                           ? 'Upgrades use secure hosted checkout. Use the same Google account to restore access later.'
+                          : CloudConfig.checkoutEnabled
+                          ? 'Sign in with Google and connect to check upgrade availability. Your library stays local; donations do not unlock a tier.'
                           : 'Payments are paused for this prebuild. For XL or XXL access, email aryandurgude123@gmail.com with your requested tier and Linqo account code. Requests are reviewed manually; a donation does not automatically unlock access.',
                     ),
                     const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () => _requestAccess(context, cloud),
-                      icon: const Icon(Icons.mail_outline_rounded),
-                      label: const Text('Email for full prebuild access'),
-                    ),
+                    if (!CloudConfig.checkoutEnabled)
+                      TextButton.icon(
+                        onPressed: () => _requestAccess(context, cloud),
+                        icon: const Icon(Icons.mail_outline_rounded),
+                        label: const Text('Email for full prebuild access'),
+                      ),
                     const SizedBox(height: 12),
                     const Text(
                       'Free · 100 saves and 5 collections\nBasic local summarization and backups remain free.',
@@ -721,12 +732,16 @@ class _TierRow extends StatelessWidget {
         OutlinedButton(
           onPressed: cloud.busy
               ? null
-              : checkoutAvailable
+              : CloudConfig.checkoutEnabled
               ? action
               : request,
           child: Text(
-            checkoutAvailable
+            CloudConfig.checkoutEnabled && cloud.identity.uid == null
+                ? 'Sign in to purchase'
+                : checkoutAvailable
                 ? 'Choose ${tier.name.toUpperCase()}'
+                : CloudConfig.checkoutEnabled
+                ? 'Check ${tier.name.toUpperCase()} availability'
                 : 'Request ${tier.name.toUpperCase()} access',
           ),
         ),

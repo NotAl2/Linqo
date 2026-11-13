@@ -24,8 +24,10 @@ test('export checksums before ack, retries safely, preserves reviews, and applie
     await writeFile(path,JSON.stringify(saved));
     await runExport({destination,queryFn});assert.equal(ack,1);
     assert.equal(JSON.parse(await readFile(path,'utf8')).review.approved,true);
+    for(const name of ['train.jsonl.tmp','eval.jsonl.tmp'])await writeFile(join(destination,name),'withdrawn content');
     deleted=true;await runExport({destination,queryFn});
     assert.deepEqual(await readdir(join(destination,'examples')),[]);
+    for(const name of ['train.jsonl.tmp','eval.jsonl.tmp'])await assert.rejects(readFile(join(destination,name)),e=>e.code==='ENOENT');
     assert.equal(JSON.parse(await readFile(join(destination,'checkpoint.json'),'utf8')).deletion,1);
   }finally{await rm(destination,{recursive:true,force:true});}
 });

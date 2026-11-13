@@ -7,9 +7,9 @@
   "observability": {"enabled": false},
   "vars": {
     "FIREBASE_PROJECT_ID": "linqo-app-notal2",
-    "PAYMENTS_ENABLED": "false",
+    "PAYMENTS_ENABLED": "true",
     "PAYMENTS_PROVIDER": "polar",
-    "POLAR_LIVE_APPROVED": "false",
+    "POLAR_LIVE_APPROVED": "true",
     "POLAR_FREE_ACCEPTANCE_ENABLED": "false",
     "CASHFREE_MODE": "sandbox",
     "CASHFREE_LIVE_APPROVED": "false",

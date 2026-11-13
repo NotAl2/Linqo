@@ -7,6 +7,7 @@ import 'package:linqo/library/library_store.dart';
 import 'package:linqo/theme.dart';
 import 'package:linqo/services/account_identity.dart';
 import 'package:linqo/services/cloud_services.dart';
+import 'package:linqo/services/cloud_config.dart';
 import 'package:linqo/ui/account_screen.dart';
 
 class _Identity implements AccountIdentity {
@@ -35,8 +36,51 @@ class _Identity implements AccountIdentity {
       {};
 }
 
+class _SignInCloud extends CloudServices {
+  _SignInCloud(super.store, AccountIdentity identity)
+    : super(identity: identity, idle: () => false, refreshed: () async {});
+  int signIns = 0;
+  @override
+  Future<void> signIn() async {
+    signIns++;
+  }
+}
+
 void main() {
   sqfliteFfiInit();
+  testWidgets(
+    'signed-out paid account starts sign-in rather than requesting email access',
+    (tester) async {
+      if (!CloudConfig.checkoutEnabled) return;
+      final store = await LibraryStore.open(
+        path: inMemoryDatabasePath,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      final controller = LibraryController(store);
+      await controller.initialize(restoreModel: false);
+      controller.cloud!.dispose();
+      final cloud = _SignInCloud(store, _Identity()..uid = null)
+        ..initialized = true;
+      controller.cloud = cloud;
+      await tester.pumpWidget(
+        MaterialApp(home: AccountScreen(controller: controller)),
+      );
+      expect(find.text('Email for full prebuild access'), findsNothing);
+      final button = find.text('Sign in to purchase');
+      for (var i = 0; i < 12 && button.evaluate().isEmpty; i++) {
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(button.first);
+      await tester.tap(button.first);
+      await tester.pumpAndSettle();
+      expect(cloud.signIns, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      controller.dispose();
+      await store.close();
+    },
+  );
   testWidgets(
     'bottom sign-out requires confirmation and preserves local settings',
     (tester) async {

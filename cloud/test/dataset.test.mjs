@@ -42,6 +42,16 @@ test('approved labels with unsupported source references never become a prepared
     const row=JSON.parse(await readFile(paths[0],'utf8'));
     row.review.target=JSON.stringify({...JSON.parse(target),summary_lines:[999]});await writeFile(paths[0],JSON.stringify(row));
     assert.throws(()=>prepare(root));
-    await assert.rejects(readFile(join(root,'dataset-manifest.json')),error=>error.code==='ENOENT');
+    for(const name of ['dataset-manifest.json','train.jsonl.tmp','eval.jsonl.tmp','.export.lock'])await assert.rejects(readFile(join(root,name)),error=>error.code==='ENOENT');
   }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('dataset preparation refuses an export lock without touching its files',async()=>{
+ const {root}=await fixture();try{
+  await writeFile(join(root,'.export.lock'),'active export');
+  await writeFile(join(root,'train.jsonl'),'existing dataset');
+  assert.throws(()=>prepare(root));
+  assert.equal(await readFile(join(root,'train.jsonl'),'utf8'),'existing dataset');
+  assert.equal(await readFile(join(root,'.export.lock'),'utf8'),'active export');
+ }finally{await rm(root,{recursive:true,force:true});}
 });

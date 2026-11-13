@@ -54,7 +54,7 @@ export async function startPolarSandbox(env,owner,value,ip,fetcher=fetch){
   const allowed=await env.PURCHASES.prepare('INSERT INTO request_limits(owner,day,count) VALUES(?,?,1) ON CONFLICT(owner,day) DO UPDATE SET count=count+1 WHERE count<10 RETURNING count').bind('polar:'+owner,day).first();
   if(!allowed)fail('try_tomorrow',429);
   await polarSandboxCatalog(env,fetcher);
-  const checkout=await polarSandboxApi(env,'/v1/checkouts/',{method:'POST',body:{products:[POLAR_SANDBOX_PRODUCTS[value.tier]],external_customer_id:await polarSandboxOwner(env,owner),allow_discount_codes:false,allow_trial:false,...(ip?{customer_ip_address:ip}:{}),success_url:env.CHECKOUT_ORIGIN+'/checkout/return'}},fetcher);
+  const checkout=await polarSandboxApi(env,'/v1/checkouts/',{method:'POST',body:{currency:'inr',products:[POLAR_SANDBOX_PRODUCTS[value.tier]],external_customer_id:await polarSandboxOwner(env,owner),allow_discount_codes:false,allow_trial:false,...(ip?{customer_ip_address:ip}:{}),success_url:env.CHECKOUT_ORIGIN+'/checkout/return'}},fetcher);
   if(!uuid.test(checkout.id??'')||!validPolarSandboxUrl(checkout.url)||checkout.currency!=='inr'||checkout.total_amount!==amounts[value.tier]||checkout.tax_behavior!=='inclusive'||checkout.external_customer_id!==await polarSandboxOwner(env,owner))fail('polar_checkout_mismatch',503);
   const expires=Math.min(Date.parse(checkout.expires_at),Date.now()+3600000);
   if(!Number.isFinite(expires)||expires<=Date.now())fail('polar_checkout_expired',503);

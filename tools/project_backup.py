@@ -39,7 +39,10 @@ def git(project, *args):
 
 
 def project_files(project):
-    for directory, dirs, files in os.walk(project, followlinks=False):
+    def enumeration_failed(error):
+        raise error
+
+    for directory, dirs, files in os.walk(project, followlinks=False, onerror=enumeration_failed):
         parent = Path(directory)
         dirs[:] = sorted(d for d in dirs if d not in EXCLUDED_DIRS and not linked(parent / d))
         for name in sorted(files):

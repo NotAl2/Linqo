@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / 'project_backup.py'
@@ -109,6 +110,17 @@ class ProjectBackupTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, r'creation timestamp: Linqo-incomplete\.zip'):
                     backup.create_backup(self.project, 'must-not-prune')
                 self.assertTrue(all(path.exists() for path in paths))
+
+    def test_unreadable_directory_never_publishes_or_prunes(self):
+        archives = [Path(backup.create_backup(self.project, f'good-{i}')['archive']) for i in range(3)]
+        def denied_walk(*args, **kwargs):
+            kwargs['onerror'](PermissionError('private directory unreadable'))
+            yield
+        with patch.object(backup.os, 'walk', denied_walk):
+            with self.assertRaises(PermissionError):
+                backup.create_backup(self.project, 'must-not-prune')
+        self.assertTrue(all(p.exists() for p in archives))
+        self.assertEqual(set(self.backup_root.glob('*.zip')), set(archives))
 
     def test_existing_lock_does_not_get_removed_or_write_archive(self):
         root = self.backup_root

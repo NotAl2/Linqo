@@ -92,11 +92,11 @@ async function route(request,env,ctx) {
   if(path==='/'&&request.method==='GET') return new Response(`<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Linqo — local bookmark library</title><body>
-<main><h1>Linqo by NotAl2</h1><p>A local-first Android bookmark library with optional on-device English summaries and Google Drive backup.</p>
+<main><h1>Linqo by NotAl2</h1><p>Software supplier and support/privacy contact: Aryan Durgude, India. Email aryandurgude123@gmail.com. Polar is the Merchant of Record for new purchases through its checkout.</p><p>A local-first Android bookmark library with optional on-device English summaries and Google Drive backup.</p>
 <p>This is Linqo's hosted checkout service. The app creates account-bound checkout links here; there is no public payment form.</p>
 <h2>One-time upgrades</h2><p>XL: ₹449, 500 saves and 30 collections. XXL: ₹649, unlimited product quotas and compatible custom-model imports.</p>
 <p>Linqo is in active development. ${(env.PAYMENTS_PROVIDER==='polar'?polarCheckoutReady(env):env.CASHFREE_MODE==='production'&&checkoutReady(env))?env.PAYMENTS_PROVIDER!=='polar'&&env.CASHFREE_ACCEPTANCE_OWNER?'Private account-restricted checkout is enabled for testing; public purchases are unavailable.':'Live checkout is available through account-bound links from the app.':'Public live checkout is not enabled.'} Payment methods and supported regions depend on the active provider and buyer eligibility. Donations are separate from purchases.</p>
-<p>Current prebuild: Free 100 saves and 5 collections; XL 500/30; XXL without product quotas. Existing content is preserved. For reviewed full prebuild access, email aryandurgude123@gmail.com with your Linqo account code. Donations do not automatically unlock access.</p>
+<p>Current tiers: Free 100 saves and 5 collections; XL 500/30; XXL without product quotas. Existing content is preserved. Start checkout or restore from the signed-in app when purchases are available; contact aryandurgude123@gmail.com for support. Donations do not automatically unlock access.</p>
 <p>Upgrade refund requests: within 15 calendar days of purchase. Contact aryandurgude123@gmail.com; see the purchase policy for details.</p>
 <nav aria-label="Product information"><a href="https://linqo-app-notal2.web.app/">About Linqo</a> ·
 <a href="https://linqo-app-notal2.web.app/purchases">Purchases, refunds and cancellations</a> ·

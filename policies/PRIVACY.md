@@ -1,6 +1,6 @@
 # Linqo privacy — development preview
 
-Policy revision: 13 November 2026. This notice covers the feature variants below; it does not enable a feature or change an earlier purchase agreement. Public paid checkout remains disabled.
+Policy revision: 13 November 2026. This notice covers the feature variants below; it does not enable a feature or change an earlier purchase agreement. The v0.9.2 beta enables account-bound Polar checkout; contribution uploads remain disabled.
 
 Linqo is in active development. Optional cloud features are configuration-gated; current preview builds with no Firebase configuration keep the library local. This document describes the implemented feature boundaries, not proof that checkout is live.
 
@@ -40,7 +40,7 @@ View or delete contributions in Account & backup, including deletion requests fo
 
 ## Controls and contact
 
-Continue without an account, keep password-protected backups, disconnect legacy Drive access, opt out of contributions, inspect/delete samples, or delete your account in Settings. Avoid posting private receipts or source text to public GitHub issues. Contact aryandurgude123@gmail.com privately for support or privacy requests. Live purchase activation additionally requires the merchant's actual identity and purchase/refund disclosures to be published.
+Continue without an account, keep password-protected backups, disconnect legacy Drive access, opt out of contributions, inspect/delete samples, or delete your account in Settings. Avoid posting private receipts or source text to public GitHub issues. Contact aryandurgude123@gmail.com privately for support or privacy requests. Linqo’s software supplier and support/privacy contact is **Aryan Durgude (NotAl2), India**, at **aryandurgude123@gmail.com**. Only this name, country and contact email are published. Polar is the Merchant of Record for purchases through its hosted checkout; its buyer terms identify the payment seller and address. This does not remove the supplier’s own applicable legal obligations.
 
 Google/Firebase, Cloudflare, Polar (and its payment subprocessors), historical Cashfree services, Buy Me a Coffee, Buy Me a Tea and their payment processors, GitHub and source providers apply their own policies. Linqo's application logging is designed to exclude secrets, checkout links, phone numbers and content payloads. This is not a promise that infrastructure providers collect no access, security, billing or account metadata. Email support also processes the information you choose to send. Providers may process information outside your country; Linqo does not promise India-only storage for these services. Infrastructure quotas/outages can interrupt optional services without deleting the local library.
 

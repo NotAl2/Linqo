@@ -29,7 +29,7 @@ try{handle=await open(lock,'wx',0o600);}catch{throw Error('Another export is run
 try {
   const checkpointPath=join(destination,'checkpoint.json');
   const state=await load(checkpointPath,{created:0,id:'',deletion:0});
-  for(const name of ['train.jsonl','eval.jsonl','dataset-manifest.json'])await unlink(join(destination,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
+  for(const name of ['train.jsonl','eval.jsonl','train.jsonl.tmp','eval.jsonl.tmp','dataset-manifest.json'])await unlink(join(destination,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
   // Process deletions first, including examples reviewed on the maintainer laptop.
   while(true){
     const rows=queryFn(`SELECT sequence,id FROM deletions WHERE sequence>${Number(state.deletion)} ORDER BY sequence LIMIT 500`);

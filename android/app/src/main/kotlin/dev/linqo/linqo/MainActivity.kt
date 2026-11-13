@@ -18,14 +18,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
-    companion object { private val io = Executors.newSingleThreadExecutor() }
+    companion object {
+        private val io = Executors.newSingleThreadExecutor()
+        private val backupIo = Executors.newSingleThreadExecutor()
+        // One optional provider read at a time; a stalled pipe cannot queue work.
+        private val imageIo = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+            SynchronousQueue<Runnable>(), { task -> Thread(task, "linqo-preview").apply { isDaemon = true } })
+    }
     private val main = Handler(Looper.getMainLooper())
     private var channel: MethodChannel? = null
     private val prefs by lazy { getSharedPreferences("share_inbox", MODE_PRIVATE) }
     private var backupResult: MethodChannel.Result? = null
     private var backupSource: File? = null
+    private var backupWriting = false
     private var notifications: ExtractionNotifications? = null
 
     override fun configureFlutterEngine(engine: FlutterEngine) {
@@ -34,7 +44,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(engine.dartExecutor.binaryMessenger, "dev.linqo/backup").setMethodCallHandler { call, result ->
             if (call.method != "save") {
                 result.notImplemented()
-            } else if (backupResult != null) {
+            } else if (backupResult != null || backupSource != null) {
                 result.error("backup_busy", "A backup destination is already open.", null)
             } else {
                 try {
@@ -88,8 +98,18 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        state?.getString("linqo.backupSource")?.let { path ->
+            val source = File(path).canonicalFile
+            val root = File(cacheDir, "library-backups").canonicalFile
+            if (source.path.startsWith(root.path + File.separator) && source.isFile) backupSource = source
+        }
         notifications?.receive(intent)
         if (state == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) receive(intent)
+    }
+
+    override fun onSaveInstanceState(state: Bundle) {
+        if (!backupWriting) backupSource?.let { state.putString("linqo.backupSource", it.path) }
+        super.onSaveInstanceState(state)
     }
 
     override fun onNewIntent(value: Intent) {
@@ -115,16 +135,21 @@ class MainActivity : FlutterActivity() {
             super.onActivityResult(requestCode, resultCode, data)
             return
         }
-        val result = backupResult ?: return
+        val result = backupResult
         val source = backupSource
         val destination = data?.data
         if (resultCode != RESULT_OK || destination == null || source == null) {
             backupResult = null
             backupSource = null
-            result.success(null)
+            result?.success(null)
+            if (resultCode == RESULT_OK && destination != null && source == null) {
+                try { android.provider.DocumentsContract.deleteDocument(contentResolver, destination) } catch (_: Exception) {}
+                Toast.makeText(this, "Backup source expired. Export again.", Toast.LENGTH_LONG).show()
+            }
             return
         }
-        io.execute {
+        backupWriting = true
+        backupIo.execute {
             try {
                 contentResolver.openOutputStream(destination, "wt").use { output ->
                     requireNotNull(output)
@@ -133,7 +158,12 @@ class MainActivity : FlutterActivity() {
                 main.post {
                     backupResult = null
                     backupSource = null
-                    result.success(destination.toString())
+                    backupWriting = false
+                    result?.success(destination.toString())
+                    if (result == null) {
+                        source.delete()
+                        Toast.makeText(this, "Backup saved.", Toast.LENGTH_LONG).show()
+                    }
                 }
             } catch (_: Exception) {
                 // Remove the incomplete destination when the provider permits it.
@@ -141,7 +171,9 @@ class MainActivity : FlutterActivity() {
                 main.post {
                     backupResult = null
                     backupSource = null
-                    result.error("backup_write", "Could not write the backup. Choose another destination and retry.", null)
+                    backupWriting = false
+                    result?.error("backup_write", "Could not write the backup. Choose another destination and retry.", null)
+                    if (result == null) Toast.makeText(this, "Backup failed. Export again to another destination.", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -164,7 +196,9 @@ class MainActivity : FlutterActivity() {
                     ?: value.getStringExtra(Intent.EXTRA_TITLE) ?: "").take(180)
                 val queue = JSONArray(prefs.getString("pending", "[]"))
                 require(queue.length() < 32)
-                val image = receiveImage(value)
+                val imageTask = try { imageIo.submit<String> { receiveImage(value) } } catch (_: Exception) { null }
+                val image = try { imageTask?.get(400, TimeUnit.MILLISECONDS) ?: "" }
+                    catch (_: Exception) { "" } finally { imageTask?.cancel(true) }
                 queue.put(JSONObject().put("id", UUID.randomUUID().toString())
                     .put("text", raw).put("subject", subject).put("image", image))
                 check(prefs.edit().putString("pending", queue.toString()).commit())

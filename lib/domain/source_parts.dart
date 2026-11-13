@@ -77,7 +77,7 @@ String mergeSourceParts(
     steps.addAll(
       parsed.recipe?.steps.expand((f) => f.lineIds).map(global) ?? [],
     );
-    details.addAll(ids(raw['detail_lines']));
+    details.addAll(parsed.facts.expand((f) => f.lineIds).map(global));
     places.addAll(
       parsed.places.map(
         (p) => {'name': p.name, 'lines': p.lineIds.map(global).toList()},
@@ -97,6 +97,21 @@ String mergeSourceParts(
   final selected = highlights.length <= 3
       ? highlights
       : [highlights.first, highlights[highlights.length ~/ 2], highlights.last];
+  final uniquePlaces = <String, Map<String, dynamic>>{};
+  for (final place in places) {
+    final name = place['name'] as String;
+    final key = name
+        .replaceFirst(RegExp(r'^the\s+', caseSensitive: false), '')
+        .toLowerCase();
+    final previous = uniquePlaces[key];
+    uniquePlaces[key] = {
+      'name': previous?['name'] ?? name,
+      'lines': {
+        ...?(previous?['lines'] as List<int>?),
+        ...(place['lines'] as List<int>),
+      }.toList()..sort(),
+    };
+  }
   return jsonEncode({
     'schema_version': 3,
     'title': ExtractionResult.parse(
@@ -108,7 +123,9 @@ String mergeSourceParts(
     'ingredient_lines': ingredients.toList()..sort(),
     'step_lines': steps.toList()..sort(),
     'detail_lines': details.toList()..sort(),
-    'places': source.typeHint == 'general' ? [] : places.take(16).toList(),
+    'places': source.typeHint == 'general'
+        ? []
+        : uniquePlaces.values.take(16).toList(),
     'processed_parts': outputs.length,
     'total_parts': totalParts,
   });

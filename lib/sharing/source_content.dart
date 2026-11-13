@@ -98,7 +98,76 @@ Map<String, String> extractPageContent(Document document, Uri uri) {
     return value == name || value is List && value.contains(name);
   }
 
-  for (final recipe in objects.where((o) => type(o, 'Recipe'))) {
+  bool currentPage(Object? value) {
+    if (value is Map) value = value['@id'];
+    if (value is! String) return false;
+    Uri withoutTracking(Uri page) {
+      final keys =
+          page.queryParametersAll.keys
+              .where(
+                (key) =>
+                    !key.toLowerCase().startsWith('utm_') &&
+                    !{'fbclid', 'gclid', 'msclkid'}.contains(key.toLowerCase()),
+              )
+              .toList()
+            ..sort();
+      return page.replace(
+        fragment: '',
+        queryParameters: {
+          for (final key in keys) key: page.queryParametersAll[key]!,
+        },
+      );
+    }
+
+    try {
+      return withoutTracking(uri.resolve(value)) == withoutTracking(uri);
+    } on FormatException {
+      return false;
+    }
+  }
+
+  bool hasContent(Map object) =>
+      object['articleBody'] is String &&
+          (object['articleBody'] as String).trim().length >= 40 ||
+      type(object, 'Recipe') &&
+          (object['recipeIngredient'] is List ||
+              object['recipeInstructions'] != null) ||
+      (type(object, 'Place') ||
+              type(object, 'LocalBusiness') ||
+              type(object, 'Restaurant')) &&
+          object['address'] != null;
+  final byId = {
+    for (final object in objects)
+      if (object['@id'] is String && object.length > 1) object['@id']: object,
+  };
+  final primary = <Map>[];
+  for (final object in objects) {
+    if (type(object, 'WebPage') &&
+        (currentPage(object['url']) || currentPage(object['@id']))) {
+      final entity = object['mainEntity'];
+      for (final ref in entity is List ? entity : [entity]) {
+        final selected = ref is Map ? (byId[ref['@id']] ?? ref) : byId[ref];
+        if (selected is Map && hasContent(selected)) primary.add(selected);
+      }
+    }
+  }
+  if (primary.isEmpty) {
+    primary.addAll(
+      objects.where(
+        (o) =>
+            hasContent(o) &&
+            (currentPage(o['url']) ||
+                currentPage(o['@id']) ||
+                currentPage(o['mainEntityOfPage'])),
+      ),
+    );
+  }
+  final structured = primary.isNotEmpty
+      ? primary
+      : objects
+            .where((o) => o['url'] == null || currentPage(o['url']))
+            .toList();
+  for (final recipe in structured.where((o) => type(o, 'Recipe'))) {
     final ingredients = <String>[];
     final raw = recipe['recipeIngredient'];
     if (raw is List) {
@@ -154,7 +223,7 @@ Map<String, String> extractPageContent(Document document, Uri uri) {
     ];
     return result(lines.join('\n'), 'recipe');
   }
-  for (final object in objects) {
+  for (final object in structured) {
     final body = object['articleBody'];
     if (body is String && body.trim().length >= 40) {
       return result(_plain(body), 'article');

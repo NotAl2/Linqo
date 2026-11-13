@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$ConfigFile, [switch]$Qa)
+param([Parameter(Mandatory=$true)][string]$ConfigFile, [switch]$Qa, [switch]$EnablePayments)
 $ErrorActionPreference = 'Stop'
 $configPath = (Resolve-Path -LiteralPath $ConfigFile).Path
 $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
@@ -6,8 +6,8 @@ $allowed = @('LINQO_FIREBASE_PROJECT_ID','LINQO_FIREBASE_API_KEY','LINQO_FIREBAS
 foreach ($entry in $config.PSObject.Properties) {
     if ($entry.Name -notin $allowed) { throw ('Unexpected client configuration field: {0}. Never embed payment/provider secrets in an APK.' -f $entry.Name) }
 }
-if ([string]$config.LINQO_CHECKOUT_ENABLED -eq 'true') {
-    throw 'This prebuild keeps payments disabled. Checkout requires a separately qualified paid-release build.'
+if (([string]$config.LINQO_CHECKOUT_ENABLED -eq 'true') -and -not $EnablePayments) {
+    throw 'Checkout-enabled builds require explicit -EnablePayments after release qualification.'
 }
 if (-not $Qa -and [string]$config.LINQO_PAID_LIMITS_ENABLED -eq 'false') {
     throw 'The public prebuild enforces tier limits. Unlimited development configurations require the separate QA identity.'

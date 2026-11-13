@@ -1,11 +1,15 @@
-import {readFile,readdir,writeFile,rename,unlink} from 'node:fs/promises';
+import {readFile,readdir,writeFile,rename,unlink,open} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
 const root=resolve(process.env.LINQO_DATA_DIRECTORY??fileURLToPath(new URL('../../.private/linqo-training/',import.meta.url)));
-for(const name of ['train.jsonl','eval.jsonl','dataset-manifest.json'])await unlink(join(root,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
+const lock=join(root,'.export.lock');
+let handle;
+try{handle=await open(lock,'wx',0o600);}catch{throw Error('Another export or dataset preparation is running.');}
+try {
+for(const name of ['train.jsonl','eval.jsonl','train.jsonl.tmp','eval.jsonl.tmp','dataset-manifest.json'])await unlink(join(root,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
 const state=JSON.parse(await readFile(join(root,'checkpoint.json'),'utf8'));
 if(Date.now()-state.last_success>7*86400000)throw Error('Pull contributions and deletion requests before preparing a dataset.');
 const buckets={train:[],eval:[]},seen=new Set();
@@ -31,3 +35,8 @@ execFileSync(dart,[join(project,'tool','validate_training_dataset.dart'),join(ro
 for(const split of Object.keys(buckets)){await rename(join(root,split+'.jsonl.tmp'),join(root,split+'.jsonl'));}
 await writeFile(join(root,'dataset-manifest.json'),JSON.stringify({prepared:Date.now(),deletion_cursor:state.deletion,counts:{train:buckets.train.length,eval:buckets.eval.length}}),{mode:0o600});
 console.log(`Prepared ${buckets.train.length} training and ${buckets.eval.length} evaluation examples. No training was started.`);
+
+} catch(error) {
+  for(const name of ['train.jsonl','eval.jsonl','train.jsonl.tmp','eval.jsonl.tmp','dataset-manifest.json'])await unlink(join(root,name)).catch(e=>{if(e.code!=='ENOENT')throw e;});
+  throw error;
+} finally { await handle.close(); await unlink(lock); }

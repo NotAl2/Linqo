@@ -20,6 +20,162 @@ Map<String, dynamic> output({
   'detail_lines': details,
 };
 void main() {
+  test('hybrid WebPage Article content is not hidden by breadcrumb metadata', () {
+    final structured = jsonEncode({
+      '@graph': [
+        {
+          '@type': ['WebPage', 'Article'],
+          'url': 'https://example.org/article',
+          'articleBody':
+              'This is the real article about local model memory and browser storage.',
+        },
+        {'@type': 'BreadcrumbList', '@id': '#breadcrumb'},
+      ],
+    });
+    final result = extractPageContent(
+      html.parse('<script type="application/ld+json">$structured</script>'),
+      Uri.parse('https://example.org/article'),
+    );
+    expect(result['contentKind'], 'article');
+    expect(result['content'], contains('real article'));
+  });
+
+  test(
+    'page metadata keeps unlabelled content and ignores only tracking query fields',
+    () {
+      for (final article in [false, true]) {
+        final content = article
+            ? {
+                '@type': 'Article',
+                'articleBody':
+                    'This primary article explains browser storage and cached local files.',
+              }
+            : {
+                '@type': 'Recipe',
+                'recipeIngredient': ['2 eggs'],
+                'recipeInstructions': ['Fry eggs.'],
+              };
+        final structured = jsonEncode({
+          '@graph': [
+            {'@type': 'WebPage', 'url': 'https://example.org/recipe'},
+            content,
+          ],
+        });
+        final result = extractPageContent(
+          html.parse('<script type="application/ld+json">$structured</script>'),
+          Uri.parse('https://example.org/recipe'),
+        );
+        expect(result['contentKind'], article ? 'article' : 'recipe');
+      }
+      Map<String, String> parse(String saved, String canonical) {
+        final structured = jsonEncode({
+          '@type': 'Recipe',
+          'url': canonical,
+          'recipeIngredient': ['2 eggs'],
+          'recipeInstructions': ['Fry eggs.'],
+        });
+        return extractPageContent(
+          html.parse('<script type="application/ld+json">$structured</script>'),
+          Uri.parse(saved),
+        );
+      }
+
+      expect(
+        parse(
+          'https://example.org/recipe?utm_source=share',
+          'https://example.org/recipe',
+        )['contentKind'],
+        'recipe',
+      );
+      expect(
+        parse(
+          'https://example.org/recipe?id=2',
+          'https://example.org/recipe?id=1',
+        )['contentKind'],
+        isNot('recipe'),
+      );
+    },
+  );
+
+  test('merging retains recipe references promoted into general details', () {
+    final source = SourceDocument(
+      'Useful ingredient fact.\nA useful preparation fact.',
+      typeHint: 'general',
+    );
+    final part = SourcePart(source.lines, 'general');
+    final raw = {
+      ...output(),
+      'ingredient_lines': [1],
+      'step_lines': [2],
+    };
+    final merged = jsonDecode(
+      mergeSourceParts(source, [part], [raw], totalParts: 1),
+    );
+    expect(merged['detail_lines'], [1, 2]);
+  });
+  test('cross-part duplicate places do not crowd out distinct venues', () {
+    final names = List.generate(
+      9,
+      (i) => 'Venue ${String.fromCharCode(65 + i)}',
+    );
+    final source = SourceDocument([...names.take(8), ...names].join('\n'));
+    final parts = [
+      SourcePart(source.lines.take(8).toList(), null),
+      SourcePart(source.lines.skip(8).toList(), null),
+    ];
+    Map<String, dynamic> places(int count) => {
+      ...output(),
+      'type': 'place',
+      'places': List.generate(
+        count,
+        (i) => {
+          'name': names[i],
+          'lines': [i + 1],
+        },
+      ),
+    };
+    final merged = jsonDecode(
+      mergeSourceParts(source, parts, [places(8), places(9)], totalParts: 2),
+    );
+    final selected = merged['places'] as List;
+    expect(selected.length, 9);
+    expect(selected.last['name'], 'Venue I');
+    expect(selected.first['lines'], [1, 9]);
+  });
+  test('primary article beats an unrelated JSON-LD recipe recommendation', () {
+    final structured = jsonEncode({
+      '@graph': [
+        {
+          '@type': 'WebPage',
+          '@id': 'https://example.org/current#page',
+          'mainEntity': {'@id': 'https://example.org/current#article'},
+        },
+        {
+          '@type': 'Recipe',
+          'url': 'https://example.org/other',
+          'recipeIngredient': ['2 eggs'],
+          'recipeInstructions': ['Fry the eggs.'],
+        },
+        {
+          '@type': 'Article',
+          '@id': 'https://example.org/current#article',
+          'articleBody':
+              'This is the primary article about browser storage and cached local files.',
+        },
+      ],
+    });
+    final doc = html.parse(
+      '<script type="application/ld+json">$structured</script>',
+    );
+    final result = extractPageContent(
+      doc,
+      Uri.parse('https://example.org/current'),
+    );
+    expect(result['contentKind'], 'article');
+    expect(result['content'], contains('primary article'));
+    expect(result['content'], isNot(contains('eggs')));
+  });
+
   test(
     'v3 highlights and legacy summaries cannot add unsupported descriptions or quantities',
     () {

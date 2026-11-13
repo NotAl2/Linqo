@@ -1,16 +1,16 @@
-# Linqo prebuild access and purchases
+# Linqo purchases and refunds
 
 Policy revision: 13 November 2026. These are preview disclosures for the listed products; existing mandatory rights and the terms agreed for an earlier purchase remain protected.
 
-**This prebuild enforces tier limits and accepts no in-app payments. Linqo remains in active development.**
+**Linqo v0.9.2 is an active-development paid beta with account-bound Polar checkout. Google sign-in is required to buy or restore XL/XXL; local Free use remains available without an account.**
 
 Free includes 100 current saves and 5 collections. XL includes 500 saves and 30 collections. XXL removes product quotas and allows compatible custom-model imports. Existing or restored over-limit libraries and already installed models are preserved. You can still read, edit, search, extract, export and delete existing saves. Deleting content frees slots; new saves and collections are blocked only when their corresponding limit is reached.
 
-**Full prebuild access:** email **aryandurgude123@gmail.com** with your requested XL/XXL tier and the Linqo account code shown after Google sign-in. Requests are reviewed manually. An approved grant belongs to that Google account and can be restored using it after reinstalling or switching devices. The developer will confirm the scope and duration of a prebuild grant. A request alone does not promise approval or permanent future access. Do not send credentials or private library content.
+**Purchase or restore:** sign in with Google in Settings → Account, choose a tier and confirm the one-time amount before opening Polar. After checkout, return to Linqo and choose Restore purchase. Existing approved prebuild grants remain valid under their agreed terms; contact support for help. Donations do not grant access.
 
-No checkout or donation automatically grants access. Donations are optional and not required to request prebuild access. Public paid checkout and new manual upgrade sales remain paused by developer choice. The owner reports Polar verification and withdrawals are now available; this is not a public sales activation or independent proof of a settled payout.
+New purchases use Polar only. Buy Me a Coffee and Buy Me a Tea remain voluntary donations, separate from purchases. Historical purchases and approved grants remain restorable. Cashfree and creator-shop checkout are not used for new sales.
 
-Reference prices for possible future paid products — **not offered for sale in this prebuild**:
+One-time prices for the current paid beta:
 
 | Tier | Price | Current saves | Collections | Custom model import |
 | --- | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ English extraction with the built-in optional model and local/Drive backup remai
 
 Free includes basic local summarization. XL's enhanced summarization options, early app updates and early access to improved models are planned benefits, not currently delivered capabilities. XXL includes compatible custom-model import and future advanced local features as they become available; it has no save/collection product quotas. All current tiers use the same available built-in model until differentiated options ship.
 
-For a future paid release, new automatic purchases use **Polar hosted checkout**, with Polar acting as Merchant of Record. Public checkout remains disabled by developer choice; activating it requires a separate release decision and remaining operational/legal checks. Start in Linqo while signed into Google: the backend binds the checkout to that Google identity. Linqo does not collect a phone number for Polar checkout. Polar collects required contact, billing and payment information under its own terms. A checkout email, screenshot, redirect or caller-provided account ID cannot claim a tier. Sign in with the same Google identity and choose Restore purchase after reinstalling or switching devices. XL to XXL is a separate full **₹649** purchase without proration.
+In the current paid beta, new automatic purchases use **Polar hosted checkout**, with Polar acting as Merchant of Record. Start in Linqo while signed into Google: the backend binds the checkout to that Google identity. Linqo does not collect a phone number for Polar checkout. Polar collects required contact, billing and payment information under its own terms. A checkout email, screenshot, redirect or caller-provided account ID cannot claim a tier. Sign in with the same Google identity and choose Restore purchase after reinstalling or switching devices. XL to XXL is a separate full **₹649** purchase without proration.
 
 Current automated beta prices are fixed **INR ₹449 / ₹649**, with tax-inclusive checkout required by the integration. These are not live USD conversions. Supported countries, payment methods and buyer eligibility are determined by Polar; UPI is not promised for every checkout. USD checkout is not enabled by this beta. The final amount and currency must match the in-app confirmation. Stop and contact support if they differ.
 
@@ -36,7 +36,7 @@ Ordinary donations through Buy Me a Coffee or Buy Me a Tea are optional support 
 
 ## Historical or separately agreed manual upgrades
 
-**New paid manual upgrades are not offered through this prebuild. The following process describes earlier/separately agreed purchases and does not override the current email-only access request above.**
+**New automatic purchases use Polar. This section preserves historical or explicitly agreed manual upgrades; a donation by itself is never an upgrade purchase.**
 
 1. Sign in to Linqo with the Google account that should own the upgrade. Choose Get account code if needed, then copy Your Linqo account code.
 2. Email aryandurgude123@gmail.com to confirm the requested tier and amount. Use [Buy Me a Coffee](https://buymeacoffee.com/notal2) only after receiving the instructions.
@@ -50,7 +50,9 @@ A payment accepted in exchange for an agreed upgrade is an upgrade purchase, eve
 
 ## Creator and refund requests
 
-Linqo's public creator name is **NotAl2**, the developer's GitHub alias. Contact **aryandurgude123@gmail.com** for purchase and refund support. This creator name is not a declaration of a registered company or a replacement for legally required seller details. The individual seller's formal disclosures and grievance-contact designation are still being completed; public paid sales remain disabled; required seller disclosures must be completed before any future sales activation.
+Polar checkout is also governed by [Polar Buyer Terms](https://polar.sh/legal/checkout-buyer-terms) and [Polar privacy policy](https://polar.sh/legal/privacy-policy). Polar identifies its payment-seller details in those terms and checkout; Linqo’s own terms govern the supplied app.
+
+Linqo’s software supplier and support/privacy contact is **Aryan Durgude (NotAl2), India**, at **aryandurgude123@gmail.com**. Only this name, country and contact email are published. Polar is the Merchant of Record for purchases through its hosted checkout; its buyer terms identify the payment seller and address. This does not remove the supplier’s own applicable legal obligations.
 
 For an XL or XXL upgrade, request a refund by emailing aryandurgude123@gmail.com **within 15 calendar days of the purchase date**. Include your requested tier and payment/order reference privately. Never send passwords, card or bank details. For technical non-delivery or duplicate payments, contact the same address. Ordinary voluntary donations are separate from upgrade purchases and this upgrade refund window.
 
@@ -70,9 +72,9 @@ A one-time purchase has no recurring subscription charge. It unlocks the purchas
 
 Offline access uses the installed app's cached signed entitlement. New-device restoration and online payment checks depend on the connected services; no promise of perpetual cloud availability, support, future operating-system compatibility or every future product is made. Material service changes must be communicated with any remedies required by law. These qualifications do not retrospectively remove an existing paid entitlement or override a purchase promise or statutory right. A full-price XL-to-XXL purchase is additional to the earlier XL purchase unless the earlier purchase is separately eligible for a refund.
 
-Before live sales, the merchant must confirm any required seller disclosures, refund eligibility and applicable tax obligations. Do not assume that Polar or a historical payment provider returns merchant processing fees when a customer is refunded; such fees are the creator's responsibility and are not a promised customer refund deduction.
+Supplier-specific accounting, tax, consumer/privacy and retention obligations remain the supplier’s responsibility. Polar’s role does not certify every legal obligation of the creator. Customer refund amounts are not reduced by retained processing fees.
 
-Live setup must confirm Polar organization/payout readiness, supported regions, checkout tax behavior and final fees. Polar's Merchant of Record role covers its own resale tax/payment obligations, not every tax or legal obligation of the creator. Checkout unavailability does not remove this prebuild’s local tier limits. Polar may issue refunds under its own rules, including to prevent chargebacks; Linqo must reflect those completed refunds. Processing fees retained by the provider are the creator's responsibility and do not reduce an eligible customer's refund.
+Polar determines supported regions/payment methods and may issue refunds under its own rules, including to prevent chargebacks; Linqo reflects completed full refunds. Provider outages may temporarily prevent new checkout or restoration without deleting local data. Processing fees retained by the provider are the creator’s responsibility and do not reduce an eligible customer’s refund.
 
 ## Private testing offers and gifts
 

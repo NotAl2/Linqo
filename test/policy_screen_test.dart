@@ -31,7 +31,7 @@ void main() {
   for (final (title, asset, expected) in const [
     ('Privacy notice', 'policies/PRIVACY.md', 'Your library'),
     ('Terms of use', 'policies/TERMS.md', 'Your content and the app'),
-    ('Access policy', 'policies/PURCHASES.md', 'Full prebuild access:'),
+    ('Access policy', 'policies/PURCHASES.md', 'Purchase or restore:'),
   ]) {
     testWidgets('$title is bundled and readable offline', (tester) async {
       var firstHeading = '';

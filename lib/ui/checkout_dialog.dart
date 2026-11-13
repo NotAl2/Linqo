@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/tiers.dart';
+import 'policy_screen.dart';
 
 class CheckoutDialog extends StatefulWidget {
   const CheckoutDialog({
@@ -97,6 +98,30 @@ class _CheckoutDialogState extends State<CheckoutDialog> {
                   'Polar is the Merchant of Record and collects required billing details in its secure checkout. Linqo does not ask for your phone number or card details.',
                 ),
               const SizedBox(height: 12),
+              const Text(
+                'One-time purchase, no subscription. XL to XXL costs the full XXL price in addition to XL. Request a full refund within 15 calendar days; mandatory rights remain protected.',
+              ),
+              Wrap(
+                children: [
+                  for (final (label, asset) in const [
+                    ('Purchase & refund policy', 'policies/PURCHASES.md'),
+                    ('Terms', 'policies/TERMS.md'),
+                    ('Privacy', 'policies/PRIVACY.md'),
+                  ])
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              PolicyScreen(title: label, asset: asset),
+                        ),
+                      ),
+                      child: Text(label),
+                    ),
+                ],
+              ),
+              const Text(
+                'Continuing accepts Linqo’s terms and purchase policy. Polar’s buyer terms also apply at checkout.',
+              ),
               const Text(
                 'Payment opens in your browser. After paying, return to Linqo and choose Restore purchase. Donations do not unlock a tier.',
               ),

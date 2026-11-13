@@ -48,10 +48,40 @@ class TestRuntime implements LocalRuntime {
   }
 }
 
+class _RestoreFailureStore extends ModelStore {
+  @override
+  Future<ImportedModel?> restore() async =>
+      throw const FormatException('damaged model');
+}
+
+class _UnloadFailureRuntime extends TestRuntime {
+  @override
+  Future<void> unload() async => throw StateError('cleanup failed');
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late TestRuntime runtime;
   late LabController controller;
+  test(
+    'failed model restore and unload leave operations recoverable',
+    () async {
+      final lab =
+          LabController(
+              runtime: _UnloadFailureRuntime(),
+              modelStore: _RestoreFailureStore(),
+            )
+            ..selectionManaged = true
+            ..modelLoaded = true;
+      await lab.refreshModel();
+      expect(lab.phase, LabPhase.failed);
+      expect(lab.busy, false);
+      expect(lab.modelLoaded, false);
+      await lab.refreshModel();
+      expect(lab.busy, false);
+      lab.dispose();
+    },
+  );
   setUp(() {
     runtime = TestRuntime();
     controller = LabController(runtime: runtime);
