@@ -1,12 +1,15 @@
-# Linqo account and Cashfree backend
+# Linqo account and purchase backend
 
-Active development; local configuration defaults to payments off, sandbox, contributions off. See [setup](../docs/CASHFREE_SETUP.md), [evidence](../docs/CASHFREE_VERIFICATION.md), [privacy](../policies/PRIVACY.md), [purchases](../policies/PURCHASES.md) and [production status](../docs/PRODUCTION_SETUP.md). Cashfree domestic PG activation and real payment acceptance are not established by unit tests. Buy Me a Coffee is donations only.
+**Current build 25:** local tier limits are enabled; all payment and contribution-upload flags remain disabled. Full prebuild access is requested by email and assigned through existing protected account-grant tools. Buy Me a Coffee and Buy Me a Tea are ordinary optional donations, not an automatic unlock. The owner reports Polar verified and withdrawals available; sales remain paused by choice. Older Cashfree integration notes below are retained for historical restoration and are not a current invitation to pay. See [current prebuild review](../docs/PREBUILD_REVIEW.md).
+
+
+Active development; local configuration defaults to payments off, sandbox, contributions off. See [setup](../docs/CASHFREE_SETUP.md), [evidence](../docs/CASHFREE_VERIFICATION.md), [privacy](../policies/PRIVACY.md), [purchases](../policies/PURCHASES.md) and [production status](../docs/PRODUCTION_SETUP.md). Cashfree domestic PG activation and real payment acceptance are not established by unit tests. Buy Me a Coffee supports ordinary donations plus separately verified manual international upgrades (US$4.99 XL / US$6.99 XXL); no donation webhook or public grant endpoint is added. See [manual unlock operations](../docs/MANUAL_UNLOCKS.md).
 
 ## Architecture
 
 Firebase Spark Google identity is optional for the local library and required for purchases/restoration. Cloudflare Workers/D1 keep minimal payment/account records, never the user's library. Drive backups stay in users' own Google storage. Purchases and contributions use separate D1 databases. No infrastructure plan is upgraded automatically.
 
-- XL ₹449 once: 250 saves/25 collections. XXL ₹649 once: unlimited product quotas and compatible custom-model imports. Free 50/5 when quotas activate; built-in English AI and backups free. XXL after XL is a separate ₹649 purchase without proration.
+- XL ₹449 once: 500 saves/30 collections. XXL ₹649 once: unlimited product quotas and compatible custom-model imports. Free 100/5 when quotas activate; built-in English AI and backups free. XXL after XL is a separate ₹649 purchase without proration.
 - POST /checkout/start authenticates Google, validates a phone number and UUID request ID, and creates a fixed INR order bound to the stable Google provider identity. A retry reuses the order/idempotency key. Contact fields and raw provider payloads are not persisted. No client price, receipt ID, checkout email or account ID can assign ownership.
 - GET /checkout/<opaque-key> renders a one-hour, no-store/no-referrer browser page using Cashfree JS SDK v3. No payment SDK or WebView is added to Flutter. The return page never confirms payment.
 - POST /webhooks/cashfree/sandbox and /production verify base64 HMAC-SHA256 over timestamp+exact raw body using the respective PG secret. Only matching known INR orders and SUCCESS payment events count. Payment/refund IDs are idempotent; full refunds (including accumulated partial refunds) dominate delayed success events. Another valid purchase provides fallback.
@@ -26,3 +29,9 @@ Successful sandbox, real domestic payment, settlement, refund, restoration, acco
 ## Contributions
 
 Contribution intake remains disabled in client and server. PUT /consent, POST/GET /samples, DELETE /samples/:id and DELETE /account retain the bounded existing behavior. Account deletion clears consent/contributions but keeps necessary purchase records and immutable identity bindings for restoration/refunds. Samples exclude identifiers and private content by policy; Google/Drive provenance review is still required before enabling uploads. No automatic training is scheduled. Existing private export/curation tooling and quotas are unchanged.
+
+Private test offers/gifts: apply `0006_private_offers_gifts.sql` before deploying the matching Worker. Commands and constraints are documented in [account-access maintainer tool](tools/account-access.mjs). No payment-enable flag changes are required to manage eligibility.
+
+Polar migration and private acceptance: see [Polar setup](../docs/POLAR_SETUP.md). Public checkout remains disabled; historical Cashfree purchases are preserved.
+
+New checkout selects `PAYMENTS_PROVIDER=polar`. `/health` and authenticated `/entitlement` report the active provider; public availability requires payment enablement, explicit Polar approval, live token, live webhook secret and HTTPS checkout origin. The official beta client validates the corresponding provider host and quoted total. Legacy Cashfree records and refund endpoints remain to preserve historical purchases; the public Polar path cannot apply the old INR 1 offer.

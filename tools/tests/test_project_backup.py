@@ -82,6 +82,34 @@ class ProjectBackupTests(unittest.TestCase):
         self.assertTrue(all(path.exists() for path in paths))
         self.assertFalse((self.backup_root / '.backup.lock').exists())
 
+    def test_unknown_invalid_archives_are_preserved_and_do_not_block_retention(self):
+        self.backup_root.mkdir()
+        unknown = self.backup_root / 'Linqo-truncated.zip'
+        unknown.write_bytes(b'not a zip')
+        for name, manifest in [('missing', None), ('invalid', b'{'), ('list', b'[]'),
+                               ('unowned', b'{"format":"other"}')]:
+            with zipfile.ZipFile(self.backup_root / f'Linqo-{name}.zip', 'w') as zipped:
+                if manifest is not None:
+                    zipped.writestr(backup.MANIFEST, manifest)
+        originals = {path: path.read_bytes() for path in self.backup_root.iterdir()}
+        paths = [Path(backup.create_backup(self.project, f'step-{n}')['archive']) for n in range(4)]
+        self.assertFalse(paths[0].exists())
+        self.assertTrue(all(path.exists() for path in paths[1:]))
+        for path, content in originals.items():
+            self.assertEqual(path.read_bytes(), content)
+
+    def test_owned_archive_with_missing_timestamp_prevents_pruning(self):
+        paths = [Path(backup.create_backup(self.project, f'step-{n}')['archive']) for n in range(3)]
+        for timestamp in [None, 123, 'invalid-date']:
+            with self.subTest(timestamp=timestamp):
+                with zipfile.ZipFile(self.backup_root / 'Linqo-incomplete.zip', 'w') as zipped:
+                    zipped.writestr(backup.MANIFEST, json.dumps({
+                        'format': backup.FORMAT, 'project': str(self.project), 'created_utc': timestamp,
+                    }))
+                with self.assertRaisesRegex(ValueError, r'creation timestamp: Linqo-incomplete\.zip'):
+                    backup.create_backup(self.project, 'must-not-prune')
+                self.assertTrue(all(path.exists() for path in paths))
+
     def test_existing_lock_does_not_get_removed_or_write_archive(self):
         root = self.backup_root
         root.mkdir()

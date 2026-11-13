@@ -18,6 +18,7 @@ class CheckoutPurchase {
     required this.expires,
     required this.accountId,
     required this.sandbox,
+    this.amountMinor = 0,
   });
   final AppTier tier;
   final String orderId;
@@ -25,18 +26,25 @@ class CheckoutPurchase {
   final DateTime expires;
   final String accountId;
   final bool sandbox;
+  final int amountMinor;
 
   factory CheckoutPurchase.parse(
     Map<String, dynamic> value,
     AppTier expected, {
     required String accountId,
     required String checkoutOrigin,
+    int? expectedAmountMinor,
+    String expectedProvider = 'cashfree',
+    bool privateFreeAcceptance = false,
+    bool expectedSandbox = true,
   }) {
-    final price = switch (expected) {
+    final standard = switch (expected) {
       AppTier.xl => 44900,
       AppTier.xxl => 64900,
       AppTier.free => 0,
     };
+    final price = expectedAmountMinor ?? standard;
+    final freeAcceptance = privateFreeAcceptance && expectedProvider == 'polar';
     final url = Uri.tryParse(
       value['checkout_url'] is String ? value['checkout_url'] as String : '',
     );
@@ -46,8 +54,20 @@ class CheckoutPurchase {
     final sandbox = value['sandbox'];
     final now = DateTime.now().millisecondsSinceEpoch;
     if (accountId.isEmpty ||
-        price == 0 ||
-        value['provider'] != 'cashfree' ||
+        (!freeAcceptance &&
+            (price == 0 ||
+                (price != standard &&
+                    !(expected == AppTier.xxl && price == 100)))) ||
+        (freeAcceptance &&
+            (standard == 0 ||
+                price != 0 ||
+                value['acceptance'] != true ||
+                sandbox != false)) ||
+        !const {'cashfree', 'polar'}.contains(expectedProvider) ||
+        value['provider'] != expectedProvider ||
+        (expectedProvider == 'polar' &&
+            !freeAcceptance &&
+            (sandbox != expectedSandbox || value['acceptance'] == true)) ||
         value['tier'] != expected.name ||
         value['amount_minor'] != price ||
         value['currency'] != 'INR' ||
@@ -70,12 +90,17 @@ class CheckoutPurchase {
         (backend.path.isNotEmpty && backend.path != '/') ||
         url == null ||
         url.scheme != 'https' ||
-        url.host != backend.host ||
+        url.host !=
+            (expectedProvider == 'polar'
+                ? (sandbox == false ? 'polar.sh' : 'sandbox.polar.sh')
+                : backend.host) ||
         url.userInfo.isNotEmpty ||
         url.hasPort ||
-        url.hasQuery ||
+        (expectedProvider != 'polar' && url.hasQuery) ||
         url.hasFragment ||
-        !RegExp(r'^/checkout/[a-f0-9]{64}$').hasMatch(url.path)) {
+        (expectedProvider == 'polar'
+            ? !url.path.startsWith('/checkout/')
+            : !RegExp(r'^/checkout/[a-f0-9]{64}$').hasMatch(url.path))) {
       throw const FormatException('Checkout could not be prepared. Try again.');
     }
     return CheckoutPurchase(
@@ -85,6 +110,7 @@ class CheckoutPurchase {
       expires: DateTime.fromMillisecondsSinceEpoch(expires),
       accountId: accountId,
       sandbox: sandbox,
+      amountMinor: price,
     );
   }
 }

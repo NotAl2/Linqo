@@ -8,6 +8,9 @@
   "vars": {
     "FIREBASE_PROJECT_ID": "linqo-app-notal2",
     "PAYMENTS_ENABLED": "false",
+    "PAYMENTS_PROVIDER": "polar",
+    "POLAR_LIVE_APPROVED": "false",
+    "POLAR_FREE_ACCEPTANCE_ENABLED": "false",
     "CASHFREE_MODE": "sandbox",
     "CASHFREE_LIVE_APPROVED": "false",
     "CHECKOUT_ORIGIN": "https://linqo-cloud.aryandurgude123.workers.dev",

@@ -1,7 +1,7 @@
 name: linqo
 description: A private library with Android sharing and optional on-device extraction.
 publish_to: none
-version: 0.9.0+19
+version: 0.9.0+25
 environment:
   sdk: '>=3.10.7 <4.0.0'
 dependencies:
@@ -33,6 +33,11 @@ flutter:
   uses-material-design: true
   assets:
     - LICENSE
+    - NOTICE
+    - THIRD_PARTY_LICENSES.txt
+    - policies/PRIVACY.md
+    - policies/TERMS.md
+    - policies/PURCHASES.md
     - assets/brand/linqo-full.png
     - assets/brand/linqo-mascot.png
     - assets/fonts/fredoka-OFL.txt

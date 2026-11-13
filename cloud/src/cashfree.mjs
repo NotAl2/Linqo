@@ -1,6 +1,13 @@
 import {digest,hmac,fail} from './crypto.mjs';
 
 export const PRODUCTS=Object.freeze({xl:44900,xxl:64900});
+export async function productPrice(db,owner,tier) {
+  if(tier==='xxl') {
+    const offer=await db.prepare('SELECT minor FROM account_offers WHERE uid=? AND enabled=1').bind(owner).first();
+    if(offer?.minor===100) return 100;
+  }
+  return PRODUCTS[tier];
+}
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const orderPattern=/^lq_[ps]_[a-f0-9-]{36}$/;
 const environments=new Set(['sandbox','production']);
@@ -50,12 +57,21 @@ async function api(env,mode,path,{method='GET',body,requestId,timeout=8000}={},f
   const base=mode==='sandbox'?'https://sandbox.cashfree.com/pg':'https://api.cashfree.com/pg';
   let response;
   try {
-    response=await fetcher(base+path,{method,redirect:'error',signal:AbortSignal.timeout(timeout),headers:{
+    // Workers supports manual, not error; reject 3xx below without forwarding keys.
+    response=await fetcher(base+path,{method,redirect:'manual',signal:AbortSignal.timeout(timeout),headers:{
       'content-type':'application/json','x-client-id':app,'x-client-secret':secret,'x-api-version':apiVersion,
       ...(requestId?{'x-idempotency-key':requestId}:{}),
     },...(body?{body:JSON.stringify(body)}:{})});
-  } catch { fail('payment_provider_unavailable',503); }
-  if(!response.ok) fail('payment_provider_unavailable',503);
+  } catch (error) {
+    const reason=['TimeoutError','AbortError','TypeError'].includes(error?.name)?error.name:'network';
+    console.warn('cashfree_provider_failure',mode,reason);
+    fail('payment_provider_unavailable',503);
+  }
+  if(!response.ok) {
+    // Status only: never log provider bodies, contact fields or credentials.
+    console.warn('cashfree_provider_failure',mode,response.status);
+    fail('payment_provider_unavailable',503);
+  }
   // Provider responses contain contact data. Never log or persist the raw body.
   const reader=response.body.getReader();let bytes=0,text='';const decoder=new TextDecoder();
   while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>262144){await reader.cancel();fail('payment_provider_unavailable',503);}text+=decoder.decode(value,{stream:true});}
@@ -67,6 +83,7 @@ function responseFor(row,key,env) {
 }
 export async function startCheckout(env,owner,value,now=Date.now(),fetcher=fetch) {
   if(!checkoutReady(env)) fail('checkout_not_live',503);
+  if(env.CASHFREE_ACCEPTANCE_OWNER&&env.CASHFREE_ACCEPTANCE_OWNER!==owner) fail('checkout_not_live',503);
   if(!value||Object.keys(value).some(k=>!['tier','phone','request_id'].includes(k))||!Object.hasOwn(PRODUCTS,value.tier)) fail('invalid_product');
   if(!uuid.test(value.request_id??'')) fail('invalid_purchase_request');
   if(typeof value.phone!=='string'||!/^\+[1-9][0-9]{7,14}$/.test(value.phone)) fail('invalid_checkout_phone');
@@ -76,14 +93,14 @@ export async function startCheckout(env,owner,value,now=Date.now(),fetcher=fetch
   // the bearer value. The HMAC secret is separate from provider credentials.
   if((env.ACCOUNT_HMAC_SECRET?.length??0)<32) fail('identity_not_configured',503);
   const key=await hmac(env.ACCOUNT_HMAC_SECRET,`checkout:${owner}:${value.request_id}`);
-  if(row&&(row.tier!==value.tier||row.environment!==mode||row.expires<=now)) fail('purchase_request_expired',409);
+  if(row&&(row.tier!==value.tier||row.environment!==mode||row.expires<=now||row.minor!==await productPrice(db,owner,value.tier))) fail('purchase_request_expired',409);
   if(!row){
     const day=new Date(now).toISOString().slice(0,10);
     const allowed=await db.prepare('INSERT INTO request_limits(owner,day,count) VALUES(?,?,1) ON CONFLICT(owner,day) DO UPDATE SET count=count+1 WHERE count<10 RETURNING count').bind(owner,day).first();
     if(!allowed) fail('try_tomorrow',429);
     const order=`lq_${mode==='sandbox'?'s':'p'}_${value.request_id}`;
     await db.prepare(`INSERT OR IGNORE INTO cashfree_orders(id,uid,request_id,tier,minor,currency,environment,created,expires,checkout_key)
-      VALUES(?,?,?,?,?,'INR',?,?,?,?)`).bind(order,owner,value.request_id,value.tier,PRODUCTS[value.tier],mode,now,now+3600000,await digest(key)).run();
+      VALUES(?,?,?,?,?,'INR',?,?,?,?)`).bind(order,owner,value.request_id,value.tier,await productPrice(db,owner,value.tier),mode,now,now+3600000,await digest(key)).run();
     row=await db.prepare('SELECT * FROM cashfree_orders WHERE uid=? AND request_id=?').bind(owner,value.request_id).first();
     // UUID collisions from another account must not reuse or reveal its order.
     if(!row) fail('invalid_purchase_request',409);
@@ -165,7 +182,8 @@ export async function reconcileOwner(env,owner,fetcher=fetch,now=Date.now()) {
   for(const row of rows.results) {
     try {credentials(env,row.environment);} catch {continue;}
     // Reserve before network work; repeated restore taps cannot hammer the API.
-    await env.PURCHASES.prepare('UPDATE cashfree_orders SET checked=? WHERE id=?').bind(now,row.id).run();
+    const reserved=await env.PURCHASES.prepare('UPDATE cashfree_orders SET checked=? WHERE id=? AND checked<?').bind(now,row.id,now-60000).run();
+    if(!reserved.meta.changes) continue;
     try{await reconcileOrder(env,row,fetcher,now);}catch{/* Preserve the known ledger during outages. */}
   }
 }
@@ -173,11 +191,13 @@ export async function checkoutPage(env,key,now=Date.now()) {
   if(!checkoutReady(env)) fail('checkout_not_live',503);
   const row=await env.PURCHASES.prepare('SELECT * FROM cashfree_orders WHERE checkout_key=?').bind(await digest(key)).first();
   if(!row||row.expires<=now||!row.session||row.environment!==env.CASHFREE_MODE) fail('checkout_expired',410);
+  if(env.CASHFREE_ACCEPTANCE_OWNER&&row.uid!==env.CASHFREE_ACCEPTANCE_OWNER) fail('checkout_expired',410);
   const nonce=btoa(crypto.randomUUID());
   const html=`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Linqo checkout</title>
 <style nonce="${nonce}">body{font:18px system-ui;background:#faf5ff;color:#301047;max-width:32rem;padding:2rem;margin:4vh auto;line-height:1.6}button{font:inherit;padding:1rem 2rem;border:0;border-radius:2rem;background:#7034cb;color:white}a{color:#7034cb}</style>
-<h1>Linqo ${row.tier.toUpperCase()}</h1><p>₹${row.minor/100} once · ${row.tier==='xl'?'250 saves and 25 collections':'Unlimited saves and collections; compatible custom-model imports'}</p>
+<h1>Linqo ${row.tier.toUpperCase()}</h1><p>₹${row.minor/100} once · ${row.tier==='xl'?'500 saves and 30 collections':'Unlimited saves and collections; compatible custom-model imports'}</p>
 ${row.environment==='sandbox'?'<p><strong>Sandbox test. No real unlock or payment. Use Cashfree test details only.</strong></p>':''}
+${row.environment==='production'&&env.CASHFREE_ACCEPTANCE_OWNER?'<p><strong>Private live acceptance test. This charges real money. Refund completion depends on Cashfree and your bank; merchant processing fees may not be returned.</strong></p>':''}
 <p>Your purchase belongs to the Google account used in Linqo. Cashfree handles payment details. Return to Linqo and choose Restore purchase after checkout.</p>
 <p><a href="https://linqo-app-notal2.web.app/purchases">Purchase and refund information</a></p><button id="pay" disabled>Continue to Cashfree</button><p id="status" role="status">Loading secure checkout…</p>
 <script nonce="${nonce}" src="https://sdk.cashfree.com/js/v3/cashfree.js"></script><script nonce="${nonce}">

@@ -123,6 +123,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Support Linqo'), findsOneWidget);
         expect(find.text('Buy me a coffee'), findsOneWidget);
+        expect(find.text('Buy me a tea · India'), findsOneWidget);
         await tester.ensureVisible(find.text('Don’t show again'));
         await tester.tap(find.byType(CheckboxListTile));
         expect(await tester.runAsync(policy.optedOut), isTrue);

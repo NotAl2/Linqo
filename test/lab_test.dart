@@ -163,7 +163,11 @@ void main() {
     () async {
       final first = controller.extract('Test evidence.');
       await Future<void>.delayed(Duration.zero);
-      await controller.extract('Another source.');
+      await expectLater(
+        controller.extract('Another source.'),
+        throwsStateError,
+      );
+      expect(controller.evidence!.text, 'Test evidence.');
       expect(runtime.calls, 1);
       runtime.output.add('{"title":');
       controller.cancel();
@@ -181,6 +185,11 @@ void main() {
     () async {
       final pending = controller.extract('Private ingredient.');
       await Future<void>.delayed(Duration.zero);
+      await expectLater(
+        controller.extract('Another source.'),
+        throwsStateError,
+      );
+      expect(controller.evidence!.text, 'Private ingredient.');
       runtime.output.add(
         jsonEncode({
           'title': 'Private dish',
@@ -198,6 +207,7 @@ void main() {
       await runtime.output.close();
       await pending;
       expect(controller.phase, LabPhase.complete);
+      expect(controller.evidence!.text, contains('Private ingredient.'));
       expect(controller.diagnosticsJson(), isNot(contains('Private')));
     },
   );
@@ -208,33 +218,51 @@ void main() {
     expect(controller.error, contains('30,000'));
   });
 
-  test(
-    'rejected retry clears the previous result instead of exposing stale facts',
-    () async {
-      final pending = controller.extract('Private ingredient.');
-      runtime.output.add(
-        jsonEncode({
-          'title': 'Previous save',
-          'summary': 'Previous content.',
-          'type': 'general',
-          'facts': [
-            {
-              'label': 'Fact',
-              'value': 'Private ingredient.',
-              'lines': [1],
-            },
-          ],
-        }),
-      );
-      await runtime.output.close();
-      await pending;
-      expect(controller.result, isNotNull);
-      await controller.extract('x' * 30001);
-      expect(controller.result, isNull);
-      expect(controller.report, isNull);
-      expect(controller.rawOutput, isEmpty);
-    },
-  );
+  for (final rejection in ['oversized', 'busy', 'unloaded']) {
+    test(
+      '$rejection retry cannot silently reuse the previous result',
+      () async {
+        final pending = controller.extract('Private ingredient.');
+        runtime.output.add(
+          jsonEncode({
+            'title': 'Previous save',
+            'summary': 'Previous content.',
+            'type': 'general',
+            'facts': [
+              {
+                'label': 'Fact',
+                'value': 'Private ingredient.',
+                'lines': [1],
+              },
+            ],
+          }),
+        );
+        await runtime.output.close();
+        await pending;
+        expect(controller.result, isNotNull);
+        if (rejection == 'busy') controller.phase = LabPhase.restoring;
+        if (rejection == 'unloaded') controller.modelLoaded = false;
+        if (rejection != 'oversized') {
+          final previousResult = controller.result;
+          final previousEvidence = controller.evidence;
+          await expectLater(
+            controller.extract('New source.'),
+            throwsStateError,
+          );
+          expect(controller.result, same(previousResult));
+          expect(controller.evidence, same(previousEvidence));
+          return;
+        }
+        await controller.extract(
+          rejection == 'oversized' ? 'x' * 30001 : 'New source.',
+        );
+        expect(controller.result, isNull);
+        expect(controller.report, isNull);
+        expect(controller.evidence, isNull);
+        expect(controller.rawOutput, isEmpty);
+      },
+    );
+  }
 
   testWidgets('phone and tablet layouts support light, dark and large text', (
     tester,
@@ -297,6 +325,34 @@ void main() {
     controller.cancel();
     await runtime.output.close();
     await pending;
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a stale enabled extraction button reports rejection safely', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: linqoTheme(Brightness.light),
+        home: LabScreen(
+          controller: controller,
+          themeMode: ThemeMode.light,
+          onThemeChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.ensureVisible(find.text('Extract on device'));
+    controller.phase = LabPhase.restoring;
+    await tester.tap(find.text('Extract on device'));
+    await tester.pump();
+    expect(
+      find.text(
+        'The model is not ready. Wait for processing to finish and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    expect(runtime.calls, 0);
     await tester.pumpWidget(const SizedBox());
   });
 

@@ -12,6 +12,7 @@ import 'release_settings.dart';
 import 'welcome_screen.dart';
 import 'notification_settings.dart';
 import 'account_screen.dart';
+import 'policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
@@ -354,7 +355,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       }
                                     : null,
                                 icon: const Icon(Icons.file_open_outlined),
-                                label: const Text('Import a GGUF instead'),
+                                label: Text(
+                                  controller.cloud?.limits.customModels == false
+                                      ? 'Custom models · XXL'
+                                      : 'Import a GGUF instead',
+                                ),
                               ),
                               TextButton(
                                 onPressed: () async {
@@ -433,8 +438,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              const SizedBox(height: 24),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -454,6 +457,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Linqo · Android first${Platform.isAndroid ? '' : ' · shared Flutter UI'}',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      const SizedBox(height: 12),
+                      for (final (title, asset) in const [
+                        ('Privacy notice', 'policies/PRIVACY.md'),
+                        ('Terms of use', 'policies/TERMS.md'),
+                        ('Access & refund policy', 'policies/PURCHASES.md'),
+                      ])
+                        TextButton(
+                          onPressed: () => openPage(
+                            context,
+                            PolicyScreen(title: title, asset: asset),
+                          ),
+                          child: Text(title),
+                        ),
                       TextButton(
                         onPressed: () => showLicensePage(
                           context: context,
@@ -498,23 +514,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Enjoy keeping your good finds here? You can support Linqo’s development. Donations are optional.',
                       ),
                       const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          try {
-                            if (!await launchUrl(
-                              Uri.parse('https://buymeacoffee.com/notal2'),
-                              mode: LaunchMode.externalApplication,
-                            )) {
-                              throw StateError(
-                                'Could not open Buy Me a Coffee. Visit buymeacoffee.com/notal2 in your browser.',
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) message(context, e);
-                          }
-                        },
-                        icon: const Icon(Icons.coffee_outlined),
-                        label: const Text('Buy me a coffee'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final (url, label, icon) in const [
+                            (
+                              'https://buymeacoffee.com/notal2',
+                              'Buy me a coffee',
+                              Icons.coffee_outlined,
+                            ),
+                            (
+                              'https://buymeatea.online/notal2',
+                              'Buy me a tea · India',
+                              Icons.emoji_food_beverage_outlined,
+                            ),
+                          ])
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                try {
+                                  if (!await launchUrl(
+                                    Uri.parse(url),
+                                    mode: LaunchMode.externalApplication,
+                                  )) {
+                                    throw StateError(
+                                      'Could not open the support page. Visit $url in your browser.',
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) message(context, e);
+                                }
+                              },
+                              icon: Icon(icon),
+                              label: Text(label),
+                            ),
+                        ],
                       ),
                     ],
                   ),

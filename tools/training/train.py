@@ -7,8 +7,8 @@ import time
 
 
 def validate(root, require_fresh=False):
-    state = json.loads((root / "checkpoint.json").read_text())
-    manifest = json.loads((root / "dataset-manifest.json").read_text())
+    state = json.loads((root / "checkpoint.json").read_text(encoding="utf-8"))
+    manifest = json.loads((root / "dataset-manifest.json").read_text(encoding="utf-8"))
     freshness = 5 * 60000 if require_fresh else 7 * 86400000
     if time.time() * 1000 - state["last_success"] > freshness:
         raise ValueError("Pull deletion requests before training.")
@@ -16,11 +16,11 @@ def validate(root, require_fresh=False):
         raise ValueError("Rebuild dataset after processing deletions.")
     rows = {}
     for split in ("train", "eval"):
-        rows[split] = [json.loads(line) for line in (root / f"{split}.jsonl").read_text().splitlines() if line]
+        rows[split] = [json.loads(line) for line in (root / f"{split}.jsonl").read_text(encoding="utf-8").split("\n") if line.strip()]
         if not rows[split]:
             raise ValueError(f"Missing {split} examples.")
         for row in rows[split]:
-            example = json.loads((root / "examples" / f"{row['id']}.json").read_text())
+            example = json.loads((root / "examples" / f"{row['id']}.json").read_text(encoding="utf-8"))
             review = example["review"]
             if not review.get("approved") or not review.get("rights_confirmed"):
                 raise ValueError("Dataset includes an unapproved example.")
@@ -83,7 +83,7 @@ def main():
     trainer.train()
     model.save_pretrained(output / "adapter")
     tokenizer.save_pretrained(output / "adapter")
-    (output / "evaluation.json").write_text(json.dumps(trainer.evaluate()))
+    (output / "evaluation.json").write_text(json.dumps(trainer.evaluate()), encoding="utf-8")
     print("Adapter saved locally. Loss alone is not a release approval. Run grounding and Redmi benchmarks before distribution.")
 
 

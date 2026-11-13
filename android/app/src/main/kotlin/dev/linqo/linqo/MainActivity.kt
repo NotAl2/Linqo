@@ -46,7 +46,7 @@ class MainActivity : FlutterActivity() {
                     @Suppress("DEPRECATION")
                     startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "application/zip"
+                        type = if (call.argument<Boolean>("encrypted") == true) "application/octet-stream" else "application/zip"
                         putExtra(Intent.EXTRA_TITLE, call.argument<String>("name") ?: "Linqo-backup.zip")
                     }, 6201)
                 } catch (_: Exception) {

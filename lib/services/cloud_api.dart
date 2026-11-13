@@ -56,8 +56,10 @@ class CloudApi {
             'Enter a phone number with + and country code.',
           'purchase_request_expired' =>
             'Checkout expired. Close this screen and start again.',
-          'payment_provider_unavailable' =>
-            'Cashfree could not connect. Retry checkout; your saves are safe.',
+          'payment_provider_unavailable' || 'polar_unavailable' =>
+            'The payment provider could not connect. Retry later; your saves are safe.',
+          'polar_inr_price_or_tax_mismatch' || 'polar_free_checkout_mismatch' =>
+            'Checkout details could not be verified. No checkout was opened. Contact support.',
           'contribution_not_accepted' =>
             'Contribution allowance reached or sample already received.',
           'contributions_paused' =>

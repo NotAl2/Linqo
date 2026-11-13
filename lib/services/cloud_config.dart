@@ -10,12 +10,17 @@ class CloudConfig {
   static const entitlementKey = String.fromEnvironment(
     'LINQO_ENTITLEMENT_PUBLIC_KEY',
   );
-  // Turn on only for a build that passed real payment/restore/refund acceptance.
-  static const paidLimits = bool.fromEnvironment('LINQO_PAID_LIMITS_ENABLED');
+  // Official prebuild limits are independent of account/network availability.
+  static const paidLimits = bool.fromEnvironment(
+    'LINQO_PAID_LIMITS_ENABLED',
+    defaultValue: true,
+  );
   static const checkout = bool.fromEnvironment('LINQO_CHECKOUT_ENABLED');
   // Enable only after Google-data provenance and consent review. Rejecting an
   // upload on the server alone does not prevent source text leaving the phone.
   static const contributionsEnabled = false;
+  // New backups use the user's document provider; preserve legacy Drive restore.
+  static const driveUploadsEnabled = false;
   static bool get identityReady => [
     projectId,
     apiKey,
@@ -33,8 +38,11 @@ class CloudConfig {
         uri.fragment.isEmpty;
   }
 
-  static bool get limitsEnabled =>
-      paidLimits && identityReady && backendReady && entitlementKey.isNotEmpty;
+  static bool get limitsEnabled => paidLimits;
   static bool get checkoutEnabled =>
-      checkout && identityReady && backendReady && entitlementKey.isNotEmpty;
+      checkout &&
+      limitsEnabled &&
+      identityReady &&
+      backendReady &&
+      entitlementKey.isNotEmpty;
 }

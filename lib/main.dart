@@ -52,9 +52,13 @@ Future<void> main() async {
   };
   Diagnostics.instance.record('app.started');
   LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      ['Linqo'],
+      '${await rootBundle.loadString('LICENSE')}\n\n${await rootBundle.loadString('NOTICE')}',
+    );
     yield LicenseEntryWithLineBreaks([
-      'Linqo',
-    ], await rootBundle.loadString('LICENSE'));
+      'Linqo dependency and native-runtime notices',
+    ], await rootBundle.loadString('THIRD_PARTY_LICENSES.txt'));
     yield LicenseEntryWithLineBreaks([
       'Fredoka',
     ], await rootBundle.loadString('assets/fonts/fredoka-OFL.txt'));

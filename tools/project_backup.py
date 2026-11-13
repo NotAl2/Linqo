@@ -159,10 +159,22 @@ def create_backup(project, milestone, signing_key=None):
                 continue
             if linked(archive):
                 raise ValueError('Refusing linked backup archive.')
-            with zipfile.ZipFile(archive) as zipped:
-                item = json.loads(zipped.read(MANIFEST))
+            try:
+                with zipfile.ZipFile(archive) as zipped:
+                    item = json.loads(zipped.read(MANIFEST))
+            except (zipfile.BadZipFile, KeyError, ValueError, OSError):
+                continue
+            if not isinstance(item, dict):
+                continue
             if item.get('format') == FORMAT and item.get('project') == str(project):
-                owned.append((item['created_utc'], archive))
+                created = item.get('created_utc')
+                try:
+                    if not isinstance(created, str):
+                        raise ValueError
+                    datetime.fromisoformat(created)
+                except ValueError:
+                    raise ValueError('Owned backup has no valid creation timestamp: ' + archive.name) from None
+                owned.append((created, archive))
         owned.sort(reverse=True)
         for _, archive in owned[:3]:
             verify(archive, project)

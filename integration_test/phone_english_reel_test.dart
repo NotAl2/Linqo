@@ -45,9 +45,12 @@ Future<Map<String, Object?>> protectedState(String databasePath) async {
     await db.close();
   }
   final root = await getApplicationSupportDirectory();
-  final manifest =
-      jsonDecode(await File('${root.path}/models/selected.json').readAsString())
-          as Map;
+  final file = File('${root.path}/models/selected.json');
+  if (!await file.exists()) {
+    state['model_selection_sha256'] = null;
+    return state;
+  }
+  final manifest = jsonDecode(await file.readAsString()) as Map;
   final selected = {
     for (final key in ['file', 'name', 'bytes', 'sha256']) key: manifest[key],
   };

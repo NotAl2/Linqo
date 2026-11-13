@@ -56,9 +56,15 @@ __pycache__/
 !docs/PRODUCTION_SETUP.md
 .project-backups/
 !docs/PROJECT_BACKUPS.md
-!docs/BMC_SHOP_SETUP.md
-!docs/BMC_SHOP_VERIFICATION.md
 
 !docs/CASHFREE_SETUP.md
 !docs/CASHFREE_VERIFICATION.md
 !docs/DEV_TOOLS.md
+!docs/MANUAL_UNLOCKS.md
+!docs/BETA_RELEASE_CHECKLIST.md
+
+# Public release documentation; private traces stay under ignored .private/.
+!docs/POLAR_SETUP.md
+!docs/BETA_SECURITY_REVIEW.md
+!docs/PREBUILD_REVIEW.md
+brag-output/

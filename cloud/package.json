@@ -2,7 +2,18 @@
   "name": "linqo-cloud",
   "private": true,
   "type": "module",
-  "scripts": {"test": "node --test test/*.test.mjs", "deploy": "wrangler deploy", "dev": "wrangler dev", "export": "node tools/export.mjs", "dataset": "node tools/dataset.mjs"},
-  "dependencies": {"jose": "^6.1.0"},
-  "devDependencies": {"wrangler": "^4.45.0"}
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "export": "node tools/export.mjs",
+    "dataset": "node tools/dataset.mjs"
+  },
+  "dependencies": {
+    "jose": "^6.1.0",
+    "standardwebhooks": "1.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
 }

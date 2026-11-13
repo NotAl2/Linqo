@@ -1,12 +1,15 @@
+import {startLiveAcceptance,startPaidPolarCheckout,reconcilePolarOwner,processPolarInbox,polarCheckoutReady} from './polar-live.mjs';
+import {polarSandboxReady,polarSandboxCatalog,startPolarSandbox,restorePolarSandbox,polarLiveCatalog,receivePolarWebhook} from './polar.mjs';
 import {createRemoteJWKSet, jwtVerify, importJWK, SignJWT} from 'jose';
 import {digest,hmac,fail} from './crypto.mjs';
-import {PRODUCTS,checkoutReady,startCheckout,effectiveCashfreeTier,recordCashfreeEvent,verifyCashfreeSignature,reconcileOwner,checkoutPage,checkoutReturn} from './cashfree.mjs';
+import {PRODUCTS,productPrice,checkoutReady,startCheckout,recordCashfreeEvent,verifyCashfreeSignature,reconcileOwner,checkoutPage,checkoutReturn} from './cashfree.mjs';
+import {accountCode,effectiveTier} from './manual-unlocks.mjs';
 export {digest,PRODUCTS};
 
 const encoder = new TextEncoder();
 const googleKeys = createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
 const categories = new Set(['recipe','article','tutorial','place','general']);
-const authenticatedRoutes = new Set(['GET /entitlement','POST /checkout/start','PUT /consent','POST /samples','GET /samples','DELETE /account']);
+const authenticatedRoutes = new Set(['POST /polar/live/checkout','GET /entitlement','GET /polar/sandbox/catalog','POST /polar/sandbox/checkout','GET /polar/sandbox/restore','POST /checkout/start','PUT /consent','POST /samples','GET /samples','DELETE /account']);
 const json = (data, status=200) => new Response(JSON.stringify(data), {status, headers:{'content-type':'application/json','cache-control':'no-store','x-content-type-options':'nosniff'}});
 async function read(request, max=12288) {
   if(Number(request.headers.get('content-length'))>max) fail('payload_too_large',413);
@@ -40,13 +43,14 @@ export async function purchaseAccount(db,subject,currentUid) {
   await db.prepare('INSERT OR IGNORE INTO account_links VALUES(?,?)').bind(subject,currentUid).run();
   return (await db.prepare('SELECT uid FROM account_links WHERE subject=?').bind(subject).first()).uid;
 }
-export const effectiveTier = effectiveCashfreeTier;
+export {effectiveTier};
 async function entitlement(env,uid,purchaseOwner) {
   await reconcileOwner(env,purchaseOwner);
+  await reconcilePolarOwner(env,purchaseOwner);
   const tier=await effectiveTier(env.PURCHASES,purchaseOwner);
   const key=await importJWK(JSON.parse(env.ENTITLEMENT_PRIVATE_JWK),'EdDSA');
   const token=await new SignJWT({tier,version:1}).setProtectedHeader({alg:'EdDSA',kid:env.KEY_ID??'v1'}).setSubject(uid).setAudience('dev.linqo.linqo').setIssuer('linqo-cloud').setIssuedAt().sign(key);
-  return {token,payments_enabled:checkoutReady(env),sandbox:env.CASHFREE_MODE!=='production'};
+  return {token,account_code:await accountCode(env.PURCHASES,purchaseOwner),xxl_price_minor:env.PAYMENTS_PROVIDER==='polar'?64900:await productPrice(env.PURCHASES,purchaseOwner,'xxl'),provider:env.PAYMENTS_PROVIDER==='polar'?'polar':'cashfree',payments_enabled:env.PAYMENTS_PROVIDER==='polar'?polarCheckoutReady(env):checkoutReady(env)&&(!env.CASHFREE_ACCEPTANCE_OWNER||env.CASHFREE_ACCEPTANCE_OWNER===purchaseOwner),sandbox:env.PAYMENTS_PROVIDER==='polar'?false:env.CASHFREE_MODE!=='production'};
 }
 export function validateSample(value) {
   const allowed=['version','category','source','output','correction','model','schema'];
@@ -83,9 +87,24 @@ export async function withdrawSample(db,owner,id) {
     db.prepare('DELETE FROM registry WHERE id=? AND owner=?').bind(id,owner)
   ]);
 }
-async function route(request,env) {
+async function route(request,env,ctx) {
   const url=new URL(request.url), path=url.pathname;
-  if(path==='/health'&&request.method==='GET') return json({ok:true,provider:'cashfree',sandbox:env.CASHFREE_MODE!=='production',payments_enabled:checkoutReady(env),contributions_enabled:env.CONTRIBUTIONS_ENABLED==='true'});
+  if(path==='/'&&request.method==='GET') return new Response(`<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linqo — local bookmark library</title><body>
+<main><h1>Linqo by NotAl2</h1><p>A local-first Android bookmark library with optional on-device English summaries and Google Drive backup.</p>
+<p>This is Linqo's hosted checkout service. The app creates account-bound checkout links here; there is no public payment form.</p>
+<h2>One-time upgrades</h2><p>XL: ₹449, 500 saves and 30 collections. XXL: ₹649, unlimited product quotas and compatible custom-model imports.</p>
+<p>Linqo is in active development. ${(env.PAYMENTS_PROVIDER==='polar'?polarCheckoutReady(env):env.CASHFREE_MODE==='production'&&checkoutReady(env))?env.PAYMENTS_PROVIDER!=='polar'&&env.CASHFREE_ACCEPTANCE_OWNER?'Private account-restricted checkout is enabled for testing; public purchases are unavailable.':'Live checkout is available through account-bound links from the app.':'Public live checkout is not enabled.'} Payment methods and supported regions depend on the active provider and buyer eligibility. Donations are separate from purchases.</p>
+<p>Current prebuild: Free 100 saves and 5 collections; XL 500/30; XXL without product quotas. Existing content is preserved. For reviewed full prebuild access, email aryandurgude123@gmail.com with your Linqo account code. Donations do not automatically unlock access.</p>
+<p>Upgrade refund requests: within 15 calendar days of purchase. Contact aryandurgude123@gmail.com; see the purchase policy for details.</p>
+<nav aria-label="Product information"><a href="https://linqo-app-notal2.web.app/">About Linqo</a> ·
+<a href="https://linqo-app-notal2.web.app/purchases">Purchases, refunds and cancellations</a> ·
+<a href="https://linqo-app-notal2.web.app/terms">Terms</a> ·
+<a href="https://linqo-app-notal2.web.app/privacy">Privacy</a> ·
+<a href="https://linqo-app-notal2.web.app/support">Contact support</a></nav></main></body></html>`,
+    {headers:{'content-type':'text/html;charset=utf-8','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; frame-ancestors 'none'; base-uri 'none'"}});
+  if(path==='/health'&&request.method==='GET') return json({ok:true,provider:env.PAYMENTS_PROVIDER==='polar'?'polar':'cashfree',sandbox:env.PAYMENTS_PROVIDER==='polar'?false:env.CASHFREE_MODE!=='production',payments_enabled:env.PAYMENTS_PROVIDER==='polar'?polarCheckoutReady(env):checkoutReady(env),contributions_enabled:env.CONTRIBUTIONS_ENABLED==='true'});
   if(path==='/checkout/return'&&request.method==='GET') return checkoutReturn();
   if(/^\/checkout\/[a-f0-9]{64}$/.test(path)&&request.method==='GET') return checkoutPage(env,path.slice(10));
   if(/^\/webhooks\/cashfree\/(sandbox|production)$/.test(path)&&request.method==='POST') {
@@ -94,11 +113,30 @@ async function route(request,env) {
     if(!await verifyCashfreeSignature(env,mode,raw,request.headers.get('x-webhook-timestamp'),request.headers.get('x-webhook-signature'))) fail('invalid_signature',401);
     return json(await recordCashfreeEvent(env,mode,JSON.parse(raw)));
   }
+  if(/^\/webhooks\/polar\/(sandbox|production)$/.test(path)&&request.method==='POST') {
+    const result=await receivePolarWebhook(env,path.split('/').at(-1),await read(request,65536),request.headers);
+    if(path.endsWith('/production')&&result.received){const work=processPolarInbox(env);if(ctx?.waitUntil)ctx.waitUntil(work);else await work;}
+    return json(result);
+  }
   if(!authenticatedRoutes.has(`${request.method} ${path}`) && !(request.method==='DELETE'&&path.startsWith('/samples/'))) fail('not_found',404);
   const {uid,purchaseOwner}=await identity(request,env);
+  if(path==='/polar/live/checkout'&&request.method==='POST')return json(await startLiveAcceptance(env,purchaseOwner,JSON.parse(await read(request)),request.headers.get('cf-connecting-ip')));
+  if(path.startsWith('/polar/sandbox/')) {
+    if(!polarSandboxReady(env)||(env.POLAR_ACCEPTANCE_OWNER&&env.POLAR_ACCEPTANCE_OWNER!==purchaseOwner))fail('checkout_not_live',503);
+    if(path==='/polar/sandbox/catalog'&&request.method==='GET'){
+      const products=await polarSandboxCatalog(env);
+      const live=env.POLAR_LIVE_PREFLIGHT==='true'?await polarLiveCatalog(env):null;
+      if(live)console.info('polar_live_catalog_verified',live.map(p=>({tier:p.tier,currency:p.currency,amount_minor:p.amount_minor})));
+      return json({sandbox:true,products,live_products_verified:live!==null});
+    }
+    if(path==='/polar/sandbox/checkout'&&request.method==='POST')return json(await startPolarSandbox(env,purchaseOwner,JSON.parse(await read(request)),request.headers.get('cf-connecting-ip')));
+    if(path==='/polar/sandbox/restore'&&request.method==='GET')return json({sandbox:true,sandbox_tier:await restorePolarSandbox(env,purchaseOwner)});
+  }
   if(path==='/entitlement'&&request.method==='GET') return json(await entitlement(env,uid,purchaseOwner));
   if(path==='/checkout/start'&&request.method==='POST') {
-    return json(await startCheckout(env,purchaseOwner,JSON.parse(await read(request))));
+    const body=JSON.parse(await read(request));
+    if(env.PAYMENTS_PROVIDER==='polar')return json(await startPaidPolarCheckout(env,purchaseOwner,body,request.headers.get('cf-connecting-ip')));
+    return json(await startCheckout(env,purchaseOwner,body));
   }
   if((env.CONTRIBUTOR_HMAC_SECRET?.length??0)<32) fail('contributions_not_configured',503);
   const owner=await hmac(env.CONTRIBUTOR_HMAC_SECRET,uid), db=env.CONTRIBUTIONS;
@@ -123,22 +161,27 @@ async function route(request,env) {
   }
   if(path==='/account'&&request.method==='DELETE') {
     await db.batch([db.prepare('INSERT OR IGNORE INTO deletions(id,created) SELECT id,? FROM registry WHERE owner=?').bind(Date.now(),owner),db.prepare('DELETE FROM samples WHERE owner=?').bind(owner),db.prepare('DELETE FROM registry WHERE owner=?').bind(owner),db.prepare('DELETE FROM consent WHERE owner=?').bind(owner)]);
-    await env.PURCHASES.prepare('DELETE FROM account_links WHERE uid=? AND NOT EXISTS(SELECT 1 FROM cashfree_orders WHERE uid=?)').bind(purchaseOwner,purchaseOwner).run();
+    await env.PURCHASES.prepare('DELETE FROM manual_accounts WHERE uid=? AND NOT EXISTS(SELECT 1 FROM manual_grants WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM gift_grants WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM account_offers WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM polar_live_checkouts WHERE uid=?)').bind(purchaseOwner,purchaseOwner,purchaseOwner,purchaseOwner,purchaseOwner).run();
+    await env.PURCHASES.prepare('DELETE FROM account_links WHERE uid=? AND NOT EXISTS(SELECT 1 FROM cashfree_orders WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM manual_grants WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM gift_grants WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM account_offers WHERE uid=?) AND NOT EXISTS(SELECT 1 FROM polar_live_checkouts WHERE uid=?)').bind(purchaseOwner,purchaseOwner,purchaseOwner,purchaseOwner,purchaseOwner,purchaseOwner).run();
     // Payment records are retained for purchase restoration/refunds; no library data exists here.
     return json({ok:true});
   }
   fail('not_found',404);
 }
 export default {
-  async fetch(request,env) {
-    try { return await route(request,env); }
+  async fetch(request,env,ctx) {
+    try { return await route(request,env,ctx); }
     catch(error) { return json({error:error.status?error.message:'service_unavailable'},error.status??503); }
   },
   async scheduled(_event,env) {
     const before=Date.now()-30*86400000;
     await env.CONTRIBUTIONS.batch([env.CONTRIBUTIONS.prepare('DELETE FROM samples WHERE created<?').bind(before),env.CONTRIBUTIONS.prepare('DELETE FROM daily WHERE day<?').bind(new Date(before).toISOString().slice(0,10))]);
+    await processPolarInbox(env);
+    await env.PURCHASES.prepare('DELETE FROM polar_webhook_inbox WHERE received<?').bind(before).run();
     await env.PURCHASES.prepare('UPDATE cashfree_orders SET session=NULL WHERE expires<? AND session IS NOT NULL').bind(Date.now()).run();
     await env.PURCHASES.prepare('DELETE FROM cashfree_orders WHERE created<? AND NOT EXISTS(SELECT 1 FROM cashfree_payments p WHERE p.order_id=cashfree_orders.id) AND NOT EXISTS(SELECT 1 FROM cashfree_refunds r WHERE r.order_id=cashfree_orders.id)').bind(Date.now()-90*86400000).run();
+    await env.PURCHASES.prepare('DELETE FROM polar_live_checkouts WHERE created<? AND NOT EXISTS(SELECT 1 FROM polar_live_orders o WHERE o.checkout_id=polar_live_checkouts.id)').bind(Date.now()-90*86400000).run();
+    await env.PURCHASES.prepare('DELETE FROM polar_checkout_requests WHERE created<?').bind(Date.now()-90*86400000).run();
     await env.PURCHASES.prepare('DELETE FROM request_limits WHERE day<?').bind(new Date(before).toISOString().slice(0,10)).run();
   }
 };

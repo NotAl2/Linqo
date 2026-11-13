@@ -50,13 +50,13 @@ void main() {
         readOnly: true,
         singleInstance: false,
       );
-      final oldRows = (await original.query('saves', orderBy: 'id'))
-          .where(
-            (row) => !(row['source_share_id'] as String? ?? '').startsWith(
-              'linqo-v082-sample-',
-            ),
-          )
-          .toList();
+      const originalSaves =
+          "COALESCE(source_share_id, '') NOT GLOB 'linqo-v082-sample-*'";
+      final oldRows = await original.query(
+        'saves',
+        where: originalSaves,
+        orderBy: 'id',
+      );
       final oldPreferences = await original.query(
         'preferences',
         orderBy: 'key',
@@ -230,8 +230,7 @@ void main() {
           }
           final afterRows = await normal.db.query(
             'saves',
-            where: 'id NOT IN (${seeded.map((_) => '?').join(',')})',
-            whereArgs: seeded,
+            where: originalSaves,
             orderBy: 'id',
           );
           expect(

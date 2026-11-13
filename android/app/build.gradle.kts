@@ -8,10 +8,19 @@ plugins {
 
 val signingProperties = Properties()
 val signingFile = rootProject.file("key.properties")
-if (signingFile.exists()) signingFile.inputStream().use { signingProperties.load(it) }
 val productionRequested = providers.gradleProperty("linqoProduction").orNull == "true"
+val qaRequested = providers.gradleProperty("linqoQa").orNull == "true"
+if (productionRequested && qaRequested) throw GradleException("QA builds cannot request production signing.")
 if (productionRequested && !signingFile.exists()) {
     throw GradleException("Production signing requires android/key.properties and a reviewed upgrade/migration path. Debug signing is only for development previews.")
+}
+if (productionRequested) {
+    signingFile.inputStream().use { signingProperties.load(it) }
+    for (property in listOf("storeFile", "storePassword", "keyAlias", "keyPassword")) {
+        if (signingProperties.getProperty(property).isNullOrBlank()) {
+            throw GradleException("Production signing requires $property in android/key.properties.")
+        }
+    }
 }
 
 android {
@@ -26,6 +35,8 @@ android {
 
     defaultConfig {
         applicationId = "dev.linqo.linqo"
+        if (qaRequested) applicationIdSuffix = ".qa"
+        manifestPlaceholders["linqoAppLabel"] = if (qaRequested) "Linqo QA" else "Linqo"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 29
@@ -39,7 +50,7 @@ android {
     }
 
     signingConfigs {
-        if (signingFile.exists()) {
+        if (productionRequested) {
             create("linqoRelease") {
                 storeFile = rootProject.file(signingProperties.getProperty("storeFile"))
                 storePassword = signingProperties.getProperty("storePassword")
@@ -50,7 +61,7 @@ android {
     }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName(if (signingFile.exists()) "linqoRelease" else "debug")
+            signingConfig = signingConfigs.getByName(if (productionRequested) "linqoRelease" else "debug")
         }
     }
 }

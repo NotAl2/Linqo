@@ -4,6 +4,7 @@ import '../domain/extraction.dart';
 import '../sharing/link_preview.dart';
 import '../sharing/source_content.dart';
 import 'models.dart';
+import 'search_terms.dart';
 import 'library_backup.dart';
 import 'support_prompt_policy.dart';
 import '../services/tiers.dart';
@@ -20,7 +21,7 @@ class LibraryStore {
     final database = await (factory ?? databaseFactory).openDatabase(
       location,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onConfigure: (db) async {
           await db.execute('PRAGMA foreign_keys=ON');
           await db.rawQuery('PRAGMA journal_mode=WAL');
@@ -103,6 +104,25 @@ class LibraryStore {
                   where: 'id=?',
                   whereArgs: [last],
                 );
+                await LibraryStore._(db)._index(db, last);
+              }
+            }
+          }
+          if (old < 6) {
+            // Rebuild only the derived index, preserving saves and settings.
+            int last = 0;
+            while (true) {
+              final rows = await db.query(
+                'saves',
+                columns: ['id'],
+                where: 'id>?',
+                whereArgs: [last],
+                orderBy: 'id',
+                limit: 40,
+              );
+              if (rows.isEmpty) break;
+              for (final row in rows) {
+                last = row['id'] as int;
                 await LibraryStore._(db)._index(db, last);
               }
             }
@@ -204,7 +224,7 @@ class LibraryStore {
     } catch (_) {
       /* Unprocessed saves still index their links and filenames. */
     }
-    return '${row['url']} ${row['file_name']} ${row['description'] ?? ''} ${row['notes'] ?? ''} $facts';
+    return '${row['kind']} ${row['url']} ${row['file_name']} ${row['description'] ?? ''} ${row['notes'] ?? ''} $facts';
   }
 
   Future<int> save(SaveDraft draft, {int? id}) async {
@@ -283,7 +303,7 @@ class LibraryStore {
                     0) >=
                 maximum) {
           throw TierLimitException(
-            'Your tier includes $maximum saves. Delete a save or choose a larger tier in Settings.',
+            'Your tier includes $maximum saves. Your existing saves stay available. Delete a save to make room, or see Settings for prebuild access.',
           );
         }
         savedId = await tx.insert('saves', {...values, 'created_at': now});
@@ -331,18 +351,33 @@ class LibraryStore {
   }) async {
     final conditions = <String>[];
     final args = <Object?>[];
-    final tokens = RegExp(
-      r'[\p{L}\p{N}]+',
-      unicode: true,
-    ).allMatches(query).take(8).map((m) => '"${m.group(0)}"*').toList();
-    if (query.trim().isNotEmpty && tokens.isEmpty) return [];
-    if (tokens.isNotEmpty) {
+    final terms = SearchTerms(query);
+    if (query.trim().isNotEmpty && terms.expanded.isEmpty) return [];
+    final relevance = <String>[];
+    final rankArgs = <Object?>[];
+    for (var i = 0; i < terms.expanded.length; i++) {
       conditions.add(
         's.id IN (SELECT rowid FROM save_search WHERE save_search MATCH ?)',
       );
-      // Whitespace is implicit AND in both FTS5 and Android's standard FTS4
-      // syntax. An explicit AND is searched as a literal on some Android builds.
-      args.add(tokens.join(' '));
+      args.add(terms.expanded[i]);
+      // Separate indexed clauses work on both Android FTS4 and FTS5.
+      for (final entry in {
+        terms.exact[i]: 12,
+        _searchColumn(terms.expanded[i], 'title'): 8,
+        _searchColumn(terms.expanded[i], 'summary'): 4,
+      }.entries) {
+        relevance.add(
+          'CASE WHEN s.id IN (SELECT rowid FROM save_search '
+          'WHERE save_search MATCH ?) THEN ${entry.value} ELSE 0 END',
+        );
+        rankArgs.add(entry.key);
+      }
+    }
+    if (terms.expanded.isNotEmpty) {
+      relevance.add(
+        'CASE WHEN instr(lower(s.title), ?) > 0 THEN 20 ELSE 0 END',
+      );
+      rankArgs.add(terms.phrase);
     }
     if (kind != null) {
       conditions.add('s.kind=?');
@@ -356,11 +391,14 @@ class LibraryStore {
     }
     if (favorites) conditions.add('s.favorite=1');
     final rows = await db.rawQuery(
-      "SELECT s.id, s.title, substr(s.body,1,360) AS body, s.url, s.kind, s.created_at, s.favorite, s.status, substr(s.summary,1,400) AS summary, '' AS extraction, '' AS extracted_from, s.error, s.file_name, s.attachment, substr(s.notes,1,360) AS notes, s.image_status, s.description, s.preview_image, s.preview_status, s.resolved_url, s.auto_title, s.auto_content, s.auto_extract, s.content_status, s.content_kind, 1 AS preview FROM saves s ${conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}'} ORDER BY s.created_at DESC, s.id DESC LIMIT ? OFFSET ?",
-      [...args, limit, offset],
+      "SELECT s.id, s.title, substr(s.body,1,360) AS body, s.url, s.kind, s.created_at, s.favorite, s.status, substr(s.summary,1,400) AS summary, '' AS extraction, '' AS extracted_from, s.error, s.file_name, s.attachment, substr(s.notes,1,360) AS notes, s.image_status, s.description, s.preview_image, s.preview_status, s.resolved_url, s.auto_title, s.auto_content, s.auto_extract, s.content_status, s.content_kind, 1 AS preview FROM saves s ${conditions.isEmpty ? '' : 'WHERE ${conditions.join(' AND ')}'} ORDER BY ${relevance.isEmpty ? '' : '(${relevance.join(' + ')}) DESC,'} s.created_at DESC, s.id DESC LIMIT ? OFFSET ?",
+      [...args, ...rankArgs, limit, offset],
     );
     return _hydrate(rows);
   }
+
+  static String _searchColumn(String match, String column) =>
+      match.split(' OR ').map((word) => '$column:$word').join(' OR ');
 
   Future<List<SavedItem>> _hydrate(List<Map<String, Object?>> rows) async {
     if (rows.isEmpty) return [];
@@ -524,7 +562,7 @@ class LibraryStore {
                     0) >=
                 maximum) {
           throw TierLimitException(
-            'Your tier includes $maximum collections. Delete a collection or choose a larger tier in Settings.',
+            'Your tier includes $maximum collections. Your existing collections stay available. Delete a collection to make room, or see Settings for prebuild access.',
           );
         }
         return tx.insert('collections', {'name': name.trim(), 'color': color});

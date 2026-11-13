@@ -5,11 +5,12 @@ import {readFileSync} from 'node:fs';
 import {createHmac,randomUUID} from 'node:crypto';
 import {generateKeyPair,exportJWK,SignJWT,jwtVerify} from 'jose';
 import worker,{purchaseAccount} from '../src/worker.mjs';
+import {manualUnlock} from '../tools/manual-unlocks.mjs';
 import {startCheckout,checkoutReady,verifyCashfreeSignature,recordCashfreeEvent,effectiveCashfreeTier,reconcileOwner,checkoutPage} from '../src/cashfree.mjs';
 
 function database(){
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
-  for(const name of ['0001.sql','0002_shop.sql','0003_cashfree.sql'])sqlite.exec(readFileSync(new URL('../migrations/purchases/'+name,import.meta.url),'utf8'));
+  for(const name of ['0001.sql','0002_shop.sql','0003_cashfree.sql','0004_manual_unlocks.sql','0005_manual_prices.sql','0006_private_offers_gifts.sql','0007_polar_webhooks.sql','0008_polar_fulfillment.sql','0009_polar_checkout_requests.sql'])sqlite.exec(readFileSync(new URL('../migrations/purchases/'+name,import.meta.url),'utf8'));
   const db={prepare(sql){let params=[];return {bind(...v){params=v;return this;},async run(){const r=sqlite.prepare(sql).run(...params);return {meta:{changes:Number(r.changes)}};},async first(){return sqlite.prepare(sql).get(...params)??null;},async all(){return {results:sqlite.prepare(sql).all(...params)};}};}};
   return {db,sqlite};
 }
@@ -30,6 +31,27 @@ test('live readiness requires explicit approval, mode, origin and credentials',(
   for(const url of ['http://linqo.test','https://user@linqo.test','https://linqo.test/path','https://linqo.test/?token=x'])assert.equal(checkoutReady({...config,CHECKOUT_ORIGIN:url}),false);
   assert.equal(checkoutReady({...config,CASHFREE_MODE:'other'}),false);
   assert.equal(checkoutReady({...config,CASHFREE_MODE:'sandbox',CASHFREE_LIVE_APPROVED:'false'}),true);
+});
+
+test('private one-rupee XXL purchase verifies its real amount, restores and refunds',async()=>{
+  const {db,sqlite}=database(),env={...config,PURCHASES:db};
+  try {
+    sqlite.exec("INSERT INTO manual_accounts VALUES('buyer','LQ-test'); INSERT INTO account_offers VALUES('buyer',100,1,1)");
+    const value=request('xxl');
+    const order=await startCheckout(env,'buyer',value,Date.now(),createApi);
+    assert.equal(order.amount_minor,100);
+    const ordinary=await start(env,'other','xxl');assert.equal(ordinary.amount_minor,64900);
+    const forged=payment(order);forged.data.payment.payment_amount=649;
+    await assert.rejects(recordCashfreeEvent(env,'production',forged),/./);
+    await recordCashfreeEvent(env,'production',payment(order));
+    assert.equal(await effectiveCashfreeTier(db,'buyer'),'xxl');
+    sqlite.exec("UPDATE account_offers SET enabled=0");
+    await assert.rejects(startCheckout(env,'buyer',value,Date.now(),createApi),/purchase_request_expired/);
+    assert.equal(await effectiveCashfreeTier(db,'buyer'),'xxl');
+    await recordCashfreeEvent(env,'production',refund(order));
+    assert.equal(await effectiveCashfreeTier(db,'buyer'),'free');
+    assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
+  }finally{sqlite.close();}
 });
 test('Cashfree signature is base64 HMAC of timestamp plus exact raw body; modes are isolated',async()=>{
   const raw='{"amount":5.00}',timestamp=String(Date.now());
@@ -66,6 +88,37 @@ test('provider outages preserve the request for retry without creating another o
     await assert.rejects(startCheckout(env,'buyer',request(),Date.now(),wrong),/invalid_provider_order/);
   }finally{sqlite.close();}
 });
+test('Worker-compatible requests never follow provider redirects or log private payloads',async()=>{
+  const {db,sqlite}=database(),env={...config,PURCHASES:db};
+  const warning=console.warn,logs=[];console.warn=(...args)=>logs.push(args);
+  try {
+    let calls=0;
+    await assert.rejects(startCheckout(env,'redirect-buyer',request(),Date.now(),async(_url,options)=>{
+      calls++;assert.equal(options.redirect,'manual');
+      return new Response('private-provider-body',{status:302,headers:{location:'https://untrusted.example/'}});
+    }),/payment_provider_unavailable/);
+    assert.equal(calls,1);assert.deepEqual(logs,[['cashfree_provider_failure','production',302]]);
+    const result=await startCheckout(env,'valid-buyer',request(),Date.now(),async(url,options)=>{
+      assert.equal(options.redirect,'manual');return createApi(url,options);
+    });
+    assert.equal(result.tier,'xl');
+  } finally {console.warn=warning;sqlite.close();}
+});
+test('attended acceptance checkout is restricted to one account, including existing links',async()=>{
+  const {db,sqlite}=database(),env={...config,PURCHASES:db};
+  try {
+    const other=await start(env,'other');
+    const restricted={...env,CASHFREE_ACCEPTANCE_OWNER:'buyer'};
+    await assert.rejects(start(restricted,'other'),e=>e.status===503);
+    await assert.rejects(checkoutPage(restricted,new URL(other.checkout_url).pathname.split('/').at(-1)),e=>e.status===410);
+    const own=await start(restricted);
+    const page=await checkoutPage(restricted,new URL(own.checkout_url).pathname.split('/').at(-1));
+    assert.equal(page.status,200);
+    assert.match(await page.text(),/Private live acceptance test.*charges real money/s);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM cashfree_orders').get().n,2);
+  } finally {sqlite.close();}
+});
+
 test('purchase starts are capped and expire; page never proves payment',async()=>{
   const {db,sqlite}=database(),env={...config,PURCHASES:db};
   try{
@@ -130,6 +183,18 @@ test('owner-only reconciliation recovers lost payment/refund delivery with bound
     refunded=true;await reconcileOwner(env,'buyer',fetcher,now+122000);assert.equal(await effectiveCashfreeTier(db,'buyer'),'free');
   }finally{sqlite.close();}
 });
+test('concurrent restore requests share one provider reconciliation cooldown',async()=>{
+  const {db,sqlite}=database(),env={...config,PURCHASES:db};
+  try{
+    const xl=await start(env),now=Date.now();let calls=0;
+    const fetcher=async()=>{calls++;return json({...payment(xl).data.order,order_status:'ACTIVE'});};
+    await Promise.all(Array.from({length:8},()=>reconcileOwner(env,'buyer',fetcher,now)));
+    assert.equal(calls,1);
+    await reconcileOwner(env,'buyer',fetcher,now+1000);assert.equal(calls,1);
+    await reconcileOwner(env,'buyer',fetcher,now+61000);assert.equal(calls,2);
+  }finally{sqlite.close();}
+});
+
 test('migration preserves Google identity and refuses to drop any Shop financial history',()=>{
   for(const table of ['bmc_purchases','bmc_refunds']){
     const sqlite=new DatabaseSync(':memory:');
@@ -152,6 +217,12 @@ test('Google-authenticated checkout, signed Cashfree events, recreated-account r
   async function call(path,{uid='original',method='GET',body,provider}={}){return worker.fetch(new Request('https://linqo.test'+path,{method,headers:{authorization:'Bearer '+await auth(uid,provider),'content-type':'application/json'},body:body?JSON.stringify(body):undefined}),env);}
   async function hook(event,sig){const raw=JSON.stringify(event),timestamp=String(Date.now());return worker.fetch(new Request('https://linqo.test/webhooks/cashfree/production',{method:'POST',headers:{'x-webhook-timestamp':timestamp,'x-webhook-signature':sig??createHmac('sha256',config.CASHFREE_SECRET_KEY).update(timestamp+raw).digest('base64')},body:raw}),env);}
   try{
+    env.CASHFREE_ACCEPTANCE_OWNER='original';
+    assert.equal((await (await call('/entitlement')).json()).payments_enabled,true);
+    assert.equal((await (await call('/entitlement',{uid:'other',provider:'other-google'})).json()).payments_enabled,false);
+    const privatePage=await (await worker.fetch(new Request('https://linqo.test/'),env)).text();
+    assert.ok(privatePage.includes('Private account-restricted checkout'));
+    delete env.CASHFREE_ACCEPTANCE_OWNER;
     const response=await call('/checkout/start',{method:'POST',body:request()});assert.equal(response.status,200);const checkout=await response.json();
     assert.equal((await hook(payment(checkout),'forged')).status,401);
     assert.equal((await hook(payment(checkout))).status,200);
@@ -159,6 +230,18 @@ test('Google-authenticated checkout, signed Cashfree events, recreated-account r
     assert.equal((await claims('recreated')).tier,'xl');assert.equal((await claims('recreated')).sub,'recreated');
     assert.equal((await claims('other','other-google')).tier,'free');
     await hook(refund(checkout));assert.equal((await claims('original')).tier,'free');
+    const originalAccount=await (await call('/entitlement')).json();
+    assert.match(originalAccount.account_code,/^LQ-[a-f0-9]{32}$/);
+    assert.equal((await (await call('/entitlement',{uid:'recreated'})).json()).account_code,originalAccount.account_code);
+    manualUnlock('grant',{code:originalAccount.account_code,tier:'xxl',reference:'manual-route-payment','amount-minor':'699',verified:true},sql=>sqlite.prepare(sql).all());
+    assert.equal((await claims('recreated')).tier,'xxl');
+    assert.equal((await claims('other','other-google')).tier,'free');
+    env.CONTRIBUTOR_HMAC_SECRET='c'.repeat(32);
+    env.CONTRIBUTIONS={prepare(){return {bind(){return this;}};},async batch(){return [];}};
+    assert.equal((await call('/account',{uid:'recreated',method:'DELETE'})).status,200);
+    assert.equal((await claims('recreated-again')).tier,'xxl');
+    assert.equal((await (await call('/entitlement',{uid:'recreated-again'})).json()).account_code,originalAccount.account_code);
+    assert.equal((await worker.fetch(new Request('https://linqo.test/manual/grant',{method:'POST'}),env)).status,404);
     assert.equal(await purchaseAccount(db,'fixture-stable-google','first'),'first');assert.equal(await purchaseAccount(db,'fixture-stable-google','second'),'first');
   }finally{globalThis.fetch=originalFetch;sqlite.close();}
 });

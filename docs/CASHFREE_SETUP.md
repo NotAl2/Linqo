@@ -1,14 +1,18 @@
 # Cashfree setup — domestic INR beta
 
-Linqo remains in active development. No paid limits until a real payment, settlement, same-Google restoration and refund pass acceptance. XL is **₹449 once / 250 saves / 25 collections**. XXL is **₹649 once / no product quotas / compatible custom-model imports**. Free remains 50 saves/5 collections when limits are eventually activated. Built-in English extraction and local/Drive backups stay free. International payments are deferred. Buy Me a Coffee is donations only.
+Linqo remains in active development. No paid limits until a real payment, settlement, same-Google restoration and refund pass acceptance. XL is **₹449 once / 500 saves / 30 collections**. XXL is **₹649 once / no product quotas / compatible custom-model imports**. Free remains 100 saves/5 collections when limits are eventually activated. Built-in English extraction and local/Drive backups stay free. Cashfree international payments are unavailable. Separately reviewed manual international upgrades use US$4.99 XL / US$6.99 XXL; ordinary donations do not automatically unlock a tier. See MANUAL_UNLOCKS.md.
 
 ## Account and provider activation
 
-The owner submitted/completed Cashfree KYC, but the Payment Gateway dashboard displayed **Product is not activated**. General account access does not establish live PG activation. Ask Cashfree support to activate domestic Payment Gateway for one-time digital software upgrades distributed as a GitHub APK, using hosted checkout. No international approval is required for this domestic-INR milestone; payment-method eligibility remains Cashfree's decision.
+The owner subsequently reported the gateway active, but current domestic activation still needs dashboard confirmation before a live test. Cashfree declined International Payment Gateway for this business profile; international payments are not supported. Continue with domestic Payment Gateway for one-time digital software upgrades distributed as a GitHub APK, using hosted checkout. No international approval is required for this domestic-INR milestone; payment-method eligibility remains Cashfree's decision.
 
 In the PG dashboard use **Switch to Test → Developers** for sandbox API credentials. Store them directly as encrypted Worker secrets `CASHFREE_TEST_APP_ID` and `CASHFREE_TEST_SECRET_KEY`. Do not paste values in chat, Dart, Git, CLI arguments or screenshots. Live credentials later use `CASHFREE_APP_ID` and `CASHFREE_SECRET_KEY`, separately. The PG secret key verifies webhooks; there is no invented separate webhook key. Use the same selected API/webhook version **2025-01-01**. Confirm support for that pinned version before live activation.
 
 Whitelist the actual checkout origin `https://linqo-cloud.aryandurgude123.workers.dev` with Cashfree, not just the Firebase information site. If their domain audit rejects a workers.dev subdomain, resolve domain approval with Cashfree before enabling checkout; do not spoof an approved origin. Publish accurate seller identity, final tax/fee treatment and refund terms. The current policies remain development notices and must be reviewed before sales.
+
+The checkout origin now has a public product-information page at `/`, linking existing product, INR pricing, refund, terms, privacy and support information. An HTTP 200 page is not domain approval. If Cashfree still flags it inactive, request manual review truthfully; do not bypass their merchant review. Before public checkout activation, update its checkout-disabled notice along with the published purchase policies.
+
+For isolated Redmi checks, register `dev.linqo.linqo.qa` and its signing fingerprint with Firebase, use that app's public-client configuration and build through `scripts/Build-CloudPreview.ps1 -ConfigFile <qa-config> -Qa`. This passes the Gradle property explicitly and rejects an APK without the `.qa` package and `Linqo QA` label. Do not rely on environment-only Gradle flags. Never distribute it as the normal app or put provider credentials in its config. `linqoProduction=true` and QA together are rejected.
 
 ## Deploy with checkout off
 

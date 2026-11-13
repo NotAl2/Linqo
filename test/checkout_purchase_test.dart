@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:linqo/services/checkout_purchase.dart';
 import 'package:linqo/services/tiers.dart';
+import 'package:linqo/services/cloud_config.dart';
 import 'package:linqo/theme.dart';
 import 'package:linqo/ui/checkout_dialog.dart';
 
@@ -18,20 +19,205 @@ Map<String, dynamic> fixture(AppTier tier) => {
       .millisecondsSinceEpoch,
 };
 void main() {
+  test('unconfigured official prebuild still enforces Free limits', () {
+    expect(CloudConfig.limitsEnabled, true);
+    expect(CloudConfig.checkoutEnabled, false);
+  });
+  test('an unlimited beta cannot sell inactive tier benefits', () {
+    if (!CloudConfig.limitsEnabled) expect(CloudConfig.checkoutEnabled, false);
+  });
+  test('private zero-total live acceptance is opt-in and rejects charges', () {
+    final value = fixture(AppTier.xxl)
+      ..addAll({
+        'provider': 'polar',
+        'sandbox': false,
+        'acceptance': true,
+        'amount_minor': 0,
+        'order_id': 'lq_p_12345678-1234-4123-8123-123456789abc',
+        'checkout_url': 'https://polar.sh/checkout/private-test',
+      });
+    CheckoutPurchase parse() => CheckoutPurchase.parse(
+      value,
+      AppTier.xxl,
+      accountId: 'owner',
+      checkoutOrigin: 'https://linqo.example',
+      expectedProvider: 'polar',
+      expectedAmountMinor: 0,
+      privateFreeAcceptance: true,
+    );
+    expect(parse().amountMinor, 0);
+    expect(
+      () => CheckoutPurchase.parse(
+        value,
+        AppTier.xxl,
+        accountId: 'owner',
+        checkoutOrigin: 'https://linqo.example',
+        expectedProvider: 'polar',
+        expectedAmountMinor: 0,
+      ),
+      throwsFormatException,
+    );
+    value['amount_minor'] = 1;
+    expect(parse, throwsFormatException);
+    value['amount_minor'] = 0;
+    value['acceptance'] = false;
+    expect(parse, throwsFormatException);
+    value['acceptance'] = true;
+    value['checkout_url'] = 'https://sandbox.polar.sh/checkout/private-test';
+    expect(parse, throwsFormatException);
+  });
+
+  test(
+    'Polar sandbox checkout rejects live hosts, environment swaps and unsolicited providers',
+    () {
+      final value = fixture(AppTier.xl)
+        ..['provider'] = 'polar'
+        ..['checkout_url'] = 'https://sandbox.polar.sh/checkout/test';
+      CheckoutPurchase parse() => CheckoutPurchase.parse(
+        value,
+        AppTier.xl,
+        accountId: 'owner',
+        checkoutOrigin: 'https://linqo.example',
+        expectedProvider: 'polar',
+      );
+      expect(parse().sandbox, isTrue);
+      expect(
+        () => CheckoutPurchase.parse(
+          value,
+          AppTier.xl,
+          accountId: 'owner',
+          checkoutOrigin: 'https://linqo.example',
+        ),
+        throwsFormatException,
+      );
+      value['sandbox'] = false;
+      expect(parse, throwsFormatException);
+      value['sandbox'] = true;
+      for (final url in [
+        'https://polar.sh/checkout/test',
+        'https://sandbox.polar.sh.attacker.example/checkout/test',
+        'https://user@sandbox.polar.sh/checkout/test',
+      ]) {
+        value['checkout_url'] = url;
+        expect(parse, throwsFormatException);
+      }
+    },
+  );
+  test(
+    'public Polar checkout accepts only the authenticated fixed live quote',
+    () {
+      final value = fixture(AppTier.xl)
+        ..addAll({
+          'provider': 'polar',
+          'sandbox': false,
+          'acceptance': false,
+          'order_id': 'lq_p_12345678-1234-4123-8123-123456789abc',
+          'checkout_url': 'https://polar.sh/checkout/public-test',
+        });
+      CheckoutPurchase parse() => CheckoutPurchase.parse(
+        value,
+        AppTier.xl,
+        accountId: 'owner',
+        checkoutOrigin: 'https://linqo.example',
+        expectedProvider: 'polar',
+        expectedSandbox: false,
+      );
+      expect(parse().amountMinor, 44900);
+      for (final change in [
+        {'amount_minor': 0},
+        {'amount_minor': 100},
+        {'acceptance': true},
+        {'sandbox': true},
+        {'checkout_url': 'https://sandbox.polar.sh/checkout/test'},
+        {'checkout_url': 'https://polar.sh.attacker.example/checkout/test'},
+      ]) {
+        final original = Map<String, dynamic>.from(value);
+        value.addAll(change);
+        expect(parse, throwsFormatException);
+        value
+          ..clear()
+          ..addAll(original);
+      }
+    },
+  );
+  testWidgets('Polar checkout collects billing only at the provider', (
+    tester,
+  ) async {
+    String? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                result = await showDialog<String>(
+                  context: context,
+                  builder: (_) => const CheckoutDialog(
+                    tier: AppTier.xl,
+                    accountLabel: 'test account',
+                    sandbox: false,
+                    provider: 'polar',
+                  ),
+                );
+              },
+              child: const Text('Buy'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Buy'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.textContaining('Merchant of Record'), findsOneWidget);
+    await tester.tap(find.text('Continue to Polar'));
+    await tester.pumpAndSettle();
+    expect(result, '');
+  });
+  test('one-rupee XXL needs the authenticated account quote', () {
+    final value = fixture(AppTier.xxl)..['amount_minor'] = 100;
+    expect(
+      () => CheckoutPurchase.parse(
+        value,
+        AppTier.xxl,
+        accountId: 'owner',
+        checkoutOrigin: 'https://linqo.example',
+      ),
+      throwsFormatException,
+    );
+    final result = CheckoutPurchase.parse(
+      value,
+      AppTier.xxl,
+      accountId: 'owner',
+      checkoutOrigin: 'https://linqo.example',
+      expectedAmountMinor: 100,
+    );
+    expect(result.amountMinor, 100);
+    expect(
+      () => CheckoutPurchase.parse(
+        value,
+        AppTier.xl,
+        accountId: 'owner',
+        checkoutOrigin: 'https://linqo.example',
+        expectedAmountMinor: 100,
+      ),
+      throwsFormatException,
+    );
+  });
   test('tiers and INR prices match the owner-approved products', () {
     expect(
       (
         const LibraryLimits(AppTier.free, enforced: true).saves,
         const LibraryLimits(AppTier.free, enforced: true).collections,
       ),
-      (50, 5),
+      (100, 5),
     );
     expect(
       (
         const LibraryLimits(AppTier.xl, enforced: true).saves,
         const LibraryLimits(AppTier.xl, enforced: true).collections,
       ),
-      (250, 25),
+      (500, 30),
     );
     expect(
       (

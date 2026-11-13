@@ -428,7 +428,7 @@ class LibraryBrowserState extends State<LibraryBrowser> {
                               maxLength: 200,
                               textInputAction: TextInputAction.search,
                               decoration: InputDecoration(
-                                hintText: 'Search your saves',
+                                hintText: 'Try “cold coffee recipes”',
                                 counterText: '',
                                 prefixIcon: const Icon(Icons.search_rounded),
                                 suffixIcon: IconButton(
@@ -436,17 +436,28 @@ class LibraryBrowserState extends State<LibraryBrowser> {
                                   onPressed: () {
                                     query.clear();
                                     debounce?.cancel();
+                                    if (scroll.hasClients) scroll.jumpTo(0);
                                     unawaited(fetch());
                                   },
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                               ),
                               onChanged: (_) {
+                                epoch++;
                                 debounce?.cancel();
                                 debounce = Timer(
                                   const Duration(milliseconds: 220),
-                                  () => unawaited(fetch()),
+                                  () {
+                                    if (scroll.hasClients) scroll.jumpTo(0);
+                                    unawaited(fetch());
+                                  },
                                 );
+                              },
+                              onSubmitted: (_) {
+                                debounce?.cancel();
+                                focus.unfocus();
+                                if (scroll.hasClients) scroll.jumpTo(0);
+                                unawaited(fetch());
                               },
                             )
                           else if (widget.onSearch != null)
@@ -569,7 +580,7 @@ class LibraryBrowserState extends State<LibraryBrowser> {
                             widget.search &&
                                 query.text.trim().isEmpty &&
                                 kind == null
-                            ? 'Search a few words from a title, note or extracted detail. Your search stays on this device.'
+                            ? 'Search by topic, ingredients or details—not just a title. Related words work too. Everything stays on this device.'
                             : widget.search || kind != null || favorites
                             ? 'Try another word or filter. Your other saves are still in the library.'
                             : 'A recipe you’ll cook. A place you’ll visit. A thought worth keeping. Save it here.',

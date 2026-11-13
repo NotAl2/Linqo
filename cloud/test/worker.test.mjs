@@ -6,12 +6,27 @@ import worker,{PRODUCTS,insertSample,validateSample,withdrawSample,purchaseAccou
 import {generateKeyPair,exportJWK,createLocalJWKSet,SignJWT} from 'jose';
 
 function database(schema){
-  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL(schema,import.meta.url),'utf8'));if(schema.includes('/purchases/')) for(const name of ['0002_shop.sql','0003_cashfree.sql']) sqlite.exec(readFileSync(new URL('../migrations/purchases/'+name,import.meta.url),'utf8'));
+  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL(schema,import.meta.url),'utf8'));if(schema.includes('/purchases/')) for(const name of ['0002_shop.sql','0003_cashfree.sql','0004_manual_unlocks.sql','0005_manual_prices.sql','0006_private_offers_gifts.sql','0007_polar_webhooks.sql','0008_polar_fulfillment.sql','0009_polar_checkout_requests.sql']) sqlite.exec(readFileSync(new URL('../migrations/purchases/'+name,import.meta.url),'utf8'));
   const adapter={prepare(sql){let params=[];return {bind(...values){params=values;return this;},async run(){const r=sqlite.prepare(sql).run(...params);return {meta:{changes:Number(r.changes)}};},async first(){return sqlite.prepare(sql).get(...params)??null;},async all(){return {results:sqlite.prepare(sql).all(...params)};}};},async batch(commands){return Promise.all(commands.map(x=>x.run()));}};
   return {db:adapter,sqlite};
 }
 const sample={version:1,category:'recipe',source:'Ingredients: one cup oats and one cup milk. Mix the oats and milk together in a bowl. Chill overnight and serve cold the next morning.',output:'{"type":"recipe","ingredients":["one cup oats","one cup milk"]}',model:'qwen3-0.6b',schema:'evidence-v1'};
 test('fixed products cannot be overridden by client prices',()=>assert.deepEqual(PRODUCTS,{xl:44900,xxl:64900}));
+test('checkout origin has public product and policy information without authentication or payment activation',async()=>{
+  const response=await worker.fetch(new Request('https://linqo.test/'),{});
+  assert.equal(response.status,200);
+  assert.match(response.headers.get('content-type'),/text\/html/);
+  const html=await response.text();
+  for(const value of ['NotAl2','15 calendar days','₹449','₹649','active development','not enabled','/purchases','/privacy','/terms','/support'])assert.ok(html.includes(value));
+  assert.ok(!html.includes('<script'));
+  const enabled={PAYMENTS_ENABLED:'true',CASHFREE_MODE:'production',CASHFREE_LIVE_APPROVED:'true',CHECKOUT_ORIGIN:'https://linqo.test',CASHFREE_APP_ID:'fixture',CASHFREE_SECRET_KEY:'fixture-secret-key'};
+  const live=await (await worker.fetch(new Request('https://linqo.test/'),enabled)).text();
+  assert.match(live,/Live checkout is available through account-bound links/);
+  assert.ok(!live.includes('Public live checkout is not enabled'));
+  const sandbox=await (await worker.fetch(new Request('https://linqo.test/'),{...enabled,CASHFREE_MODE:'sandbox',CASHFREE_TEST_APP_ID:'fixture',CASHFREE_TEST_SECRET_KEY:'fixture-secret-key'})).text();
+  assert.ok(sandbox.includes('Public live checkout is not enabled'));
+  assert.equal((await worker.fetch(new Request('https://linqo.test/',{method:'POST'}),{})).status,404);
+});
 test('Firebase identity verifies signature, project, expiry, provider and verified email',async()=>{
   const {privateKey,publicKey}=await generateKeyPair('RS256');
   const jwk=await exportJWK(publicKey);jwk.kid='fixture';const keys=createLocalJWKSet({keys:[jwk]});
@@ -95,4 +110,9 @@ test('Cashfree defaults stay disabled; old provider and checkout routes are gone
     assert.equal((await worker.fetch(new Request('https://test'+path,{method}),env)).status,404);
   }
   assert.equal((await worker.fetch(new Request('https://test/webhooks/cashfree/sandbox',{method:'POST',body:'{}'}),env)).status,401);
+});
+
+test('health reports the configured Polar provider without enabling unapproved checkout',async()=>{
+ const response=await worker.fetch(new Request('https://linqo.test/health'),{PAYMENTS_PROVIDER:'polar',PAYMENTS_ENABLED:'true',POLAR_LIVE_APPROVED:'false'});
+ const body=await response.json();assert.equal(body.provider,'polar');assert.equal(body.sandbox,false);assert.equal(body.payments_enabled,false);
 });

@@ -287,7 +287,7 @@ void main() {
     await controller.save(
       const SaveDraft(
         title: 'Coffee on Saturday',
-        body: 'Visit Monmouth Coffee.',
+        body: 'Visit Monmouth Coffee for an iced coffee.',
         kind: SaveKind.place,
       ),
     );
@@ -307,7 +307,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.enterText(
       find.byKey(const ValueKey('library-search')),
-      'coffee',
+      'show me cold coffee',
     );
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump(const Duration(milliseconds: 250));

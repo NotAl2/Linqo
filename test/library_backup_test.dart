@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -31,6 +32,42 @@ void main() {
     await root.delete(recursive: true);
   });
   Future<Directory> work() => root.createTemp('work-');
+  test(
+    'restoring an over-limit library preserves content and blocks only new additions',
+    () async {
+      for (var i = 0; i < 101; i++) {
+        await source.save(SaveDraft(title: 'Restored $i'));
+      }
+      for (var i = 0; i < 6; i++) {
+        await source.saveCollection('Restored collection $i', 0);
+      }
+      target.limits = () => const LibraryLimits(AppTier.free, enforced: true);
+      final archive = await LibraryBackup(source, files).export(await work());
+      final backup = LibraryBackup(
+        target,
+        Directory('${root.path}/restored-files'),
+      );
+      final result = await backup.import(archive, await work());
+      expect(result.added, 101);
+      expect(await target.count(), 101);
+      expect((await target.collections()).length, 6);
+      await expectLater(
+        target.save(SaveDraft(title: 'Extra')),
+        throwsA(isA<TierLimitException>()),
+      );
+      await expectLater(
+        target.saveCollection('Extra', 0),
+        throwsA(isA<TierLimitException>()),
+      );
+      expect((await backup.import(archive, await work())).added, 0);
+      final existing = (await target.query()).first;
+      await target.save(
+        SaveDraft(title: 'Edited restored save'),
+        id: existing.id,
+      );
+      expect((await target.get(existing.id))!.title, 'Edited restored save');
+    },
+  );
   test(
     'backup workers do not capture the live controller policy or timer',
     () async {
@@ -273,6 +310,31 @@ void main() {
       expect(await output.list().length, 0);
     },
   );
+  test('backup rejects symlink metadata before decoding its payload', () async {
+    await target.save(const SaveDraft(title: 'Keep me'));
+    final archive = Archive()..add(ArchiveFile.bytes('library.json', [0xff]));
+    final bytes = Uint8List.fromList(ZipEncoder().encode(archive));
+    final directory = ZipDirectory()..read(InputMemoryStream(bytes));
+    final central = directory.centralDirectoryOffset;
+    ByteData.sublistView(bytes)
+      ..setUint16(central + 4, (3 << 8) | 20, Endian.little)
+      ..setUint32(central + 38, 0xa1ff << 16, Endian.little);
+    final malicious = await File(
+      '${root.path}/symlink.zip',
+    ).writeAsBytes(bytes);
+    await expectLater(
+      LibraryBackup(target, files).import(malicious, await work()),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          'This is not a valid Linqo backup.',
+        ),
+      ),
+    );
+    expect((await target.query()).single.title, 'Keep me');
+  });
+
   test('corrupted file content is rejected before library changes', () async {
     await File('${files.path}/123.txt').writeAsString('Original content');
     await source.save(

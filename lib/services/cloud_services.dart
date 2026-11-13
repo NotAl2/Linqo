@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../library/library_backup.dart';
@@ -17,14 +18,17 @@ import 'tiers.dart';
 import 'checkout_purchase.dart';
 
 class CloudServices extends ChangeNotifier {
+  static const _accountCheckError =
+      'Account check could not finish. Cached purchases and local saves are available; export a backup through Files in Settings.';
   CloudServices(
     this.store, {
     AccountIdentity? identity,
+    http.Client? httpClient,
     required this.idle,
     required this.refreshed,
     this.attachments,
   }) : identity = identity ?? GoogleAccountIdentity() {
-    api = CloudApi(this.identity);
+    api = CloudApi(this.identity, client: httpClient);
     drive = DriveBackup(this.identity);
   }
   final LibraryStore store;
@@ -38,15 +42,25 @@ class CloudServices extends ChangeNotifier {
   AppTier _tier = AppTier.free;
   String? _tierOwner;
   AppTier get tier => identity.uid == _tierOwner ? _tier : AppTier.free;
+  String _accountCode = '';
+  int _xxlPriceMinor = 64900;
+  int priceMinor(AppTier tier) =>
+      tier == AppTier.xxl && identity.uid == _tierOwner
+      ? _xxlPriceMinor
+      : tier == AppTier.xxl
+      ? 64900
+      : 44900;
+  String get accountCode => identity.uid == _tierOwner ? _accountCode : '';
   LibraryLimits get limits =>
-      LibraryLimits(tier, enforced: CloudConfig.limitsEnabled && initialized);
+      LibraryLimits(tier, enforced: CloudConfig.limitsEnabled);
   bool busy = false,
       initialized = false,
       driveEnabled = false,
       contributions = false,
       paymentsLive = false;
-  bool foreground = true, _disposed = false;
+  bool foreground = true, _disposed = false, _ticking = false;
   bool sandboxCheckout = true;
+  String paymentProvider = 'polar';
   String? _checkoutRequestId, _checkoutAccount, _checkoutPhone;
   AppTier? _checkoutProduct;
   String status = '', error = '';
@@ -68,6 +82,7 @@ class CloudServices extends ChangeNotifier {
       error =
           'Account services could not connect. Your local library is available.';
     }
+    if (_disposed) return;
     initialized = true;
     _changed();
     _timer = Timer.periodic(
@@ -81,11 +96,15 @@ class CloudServices extends ChangeNotifier {
     final uid = identity.uid;
     _tier = AppTier.free;
     _tierOwner = uid;
+    _accountCode = '';
+    _xxlPriceMinor = 64900;
     driveEnabled = false;
     contributions = false;
     _sample = null;
     _nextAccountCheck = null;
     paymentsLive = false;
+    paymentProvider = 'polar';
+    sandboxCheckout = true;
     _checkoutRequestId = _checkoutAccount = _checkoutPhone = null;
     _checkoutProduct = null;
     if (uid != null) {
@@ -153,9 +172,21 @@ class CloudServices extends ChangeNotifier {
     final restored = await verifier.verify(token, uid);
     if (identity.uid != uid) return;
     await store.setPreference('entitlement_$uid', token);
+    if (identity.uid != uid || _disposed) return;
     _tier = restored;
     _tierOwner = uid;
-    paymentsLive = response['payments_enabled'] == true;
+    final code = response['account_code'];
+    _accountCode = code is String && RegExp(r'^LQ-[a-f0-9]{32}$').hasMatch(code)
+        ? code
+        : '';
+    paymentProvider = response['provider'] == 'cashfree' ? 'cashfree' : 'polar';
+    _xxlPriceMinor =
+        paymentProvider == 'cashfree' && response['xxl_price_minor'] == 100
+        ? 100
+        : 64900;
+    paymentsLive =
+        response['payments_enabled'] == true &&
+        const {'polar', 'cashfree'}.contains(response['provider']);
     sandboxCheckout = response['sandbox'] != false;
     _lastRefresh = DateTime.now();
     _changed();
@@ -191,7 +222,7 @@ class CloudServices extends ChangeNotifier {
           method: 'POST',
           body: {
             'tier': product.name,
-            'phone': phone,
+            if (paymentProvider == 'cashfree') 'phone': phone,
             'request_id': _checkoutRequestId,
           },
         );
@@ -209,6 +240,9 @@ class CloudServices extends ChangeNotifier {
         product,
         accountId: uid,
         checkoutOrigin: CloudConfig.backend,
+        expectedAmountMinor: priceMinor(product),
+        expectedProvider: paymentProvider,
+        expectedSandbox: sandboxCheckout,
       );
     });
     return purchase!;
@@ -290,6 +324,7 @@ class CloudServices extends ChangeNotifier {
       .contains(ConnectivityResult.wifi);
   Future<void> tick() async {
     if (_disposed ||
+        _ticking ||
         !initialized ||
         busy ||
         !foreground ||
@@ -297,76 +332,86 @@ class CloudServices extends ChangeNotifier {
         identity.uid == null) {
       return;
     }
+    _ticking = true;
     try {
-      await run(() async {
-        final uid = identity.uid!;
-        if (CloudConfig.backendReady) {
-          try {
-            if (await store.preference('consent_pending_$uid') == '1') {
-              await api.call(
-                '/consent',
-                method: 'PUT',
-                body: {'enabled': false, 'version': 1},
-              );
-              await store.setPreference('consent_pending_$uid', '0');
-            }
-            if ((_nextAccountCheck == null ||
-                    DateTime.now().isAfter(_nextAccountCheck!)) &&
-                (_lastRefresh == null ||
-                    DateTime.now().difference(_lastRefresh!) >
-                        const Duration(hours: 1))) {
-              _nextAccountCheck = DateTime.now().add(
-                const Duration(minutes: 15),
-              );
-              final health = await api.call('/health');
-              paymentsLive = health['payments_enabled'] == true;
-              sandboxCheckout = health['sandbox'] != false;
-              await restorePurchase();
-              _nextAccountCheck = DateTime.now().add(const Duration(hours: 1));
-            }
-          } catch (_) {
-            error =
-                'Account check could not finish. Cached purchases and local saves are available; Drive backup can still run.';
+      final uid = identity.uid!;
+      if (CloudConfig.backendReady) {
+        try {
+          if (await store.preference('consent_pending_$uid') == '1') {
+            await api.call(
+              '/consent',
+              method: 'PUT',
+              body: {'enabled': false, 'version': 1},
+            );
+            await store.setPreference('consent_pending_$uid', '0');
           }
-        }
-        if ((!driveEnabled && _sample == null) ||
-            !await _wifi() ||
-            !idle() ||
-            !foreground ||
-            identity.uid != uid) {
-          return;
-        }
-        if (CloudConfig.contributionsEnabled &&
-            _sample != null &&
-            contributions &&
-            _sampleOwner == uid &&
-            CloudConfig.backendReady) {
-          final sample = _sample!;
-          _sample = null;
-          try {
-            await api.call('/samples', method: 'POST', body: sample);
-          } catch (_) {
-            error =
-                'The optional contribution was not sent. Your library is unaffected.';
+          if ((_nextAccountCheck == null ||
+                  DateTime.now().isAfter(_nextAccountCheck!)) &&
+              (_lastRefresh == null ||
+                  DateTime.now().difference(_lastRefresh!) >
+                      const Duration(hours: 1))) {
+            _nextAccountCheck = DateTime.now().add(const Duration(minutes: 15));
+            final health = await api.call('/health');
+            if (identity.uid != uid || _disposed || busy) return;
+            // Public health cannot grant checkout availability to this owner.
+            if (health['payments_enabled'] != true) paymentsLive = false;
+            sandboxCheckout = health['sandbox'] != false;
+            await restorePurchase();
+            if (identity.uid != uid || _disposed || busy) return;
+            paymentsLive = paymentsLive && health['payments_enabled'] == true;
+            if (error == _accountCheckError) error = '';
+            _nextAccountCheck = DateTime.now().add(const Duration(hours: 1));
           }
+        } catch (_) {
+          if (identity.uid == uid && !_disposed) error = _accountCheckError;
         }
-        final then = DateTime.tryParse(lastBackup ?? '');
-        final attempt = DateTime.tryParse(
-          await store.preference('drive_attempt_$uid') ?? '',
-        );
-        final revision = await store.preference('library_revision') ?? '0';
-        if (driveEnabled &&
-            (attempt == null ||
-                DateTime.now().difference(attempt) >
-                    const Duration(hours: 1)) &&
-            (then == null ||
-                DateTime.now().difference(then) > const Duration(days: 1)) &&
-            revision != await store.preference('drive_revision_$uid')) {
-          await _backup(uid, revision);
+      }
+      if ((!driveEnabled && _sample == null) ||
+          !await _wifi() ||
+          busy ||
+          !idle() ||
+          !foreground ||
+          identity.uid != uid) {
+        return;
+      }
+      if (CloudConfig.contributionsEnabled &&
+          _sample != null &&
+          contributions &&
+          _sampleOwner == uid &&
+          CloudConfig.backendReady) {
+        final sample = _sample!;
+        _sample = null;
+        try {
+          await api.call('/samples', method: 'POST', body: sample);
+        } catch (_) {
+          error =
+              'The optional contribution was not sent. Your library is unaffected.';
         }
-      });
-    } catch (_) {
-      /* Display the error in Settings; never break local work or retry in a tight loop. */
+      }
+      final then = DateTime.tryParse(lastBackup ?? '');
+      final attempt = DateTime.tryParse(
+        await store.preference('drive_attempt_$uid') ?? '',
+      );
+      final revision = await store.preference('library_revision') ?? '0';
+      if (CloudConfig.driveUploadsEnabled &&
+          driveEnabled &&
+          !busy &&
+          identity.uid == uid &&
+          (attempt == null ||
+              DateTime.now().difference(attempt) > const Duration(hours: 1)) &&
+          (then == null ||
+              DateTime.now().difference(then) > const Duration(days: 1)) &&
+          revision != await store.preference('drive_revision_$uid')) {
+        if (busy || identity.uid != uid || _disposed) return;
+        await run(() => _backup(uid, revision));
+      }
+    } catch (e) {
+      error = e is StateError
+          ? e.message.toString()
+          : 'The operation could not finish. Your local saves are safe.';
+    } finally {
+      _ticking = false;
+      _changed();
     }
   }
 
@@ -378,6 +423,11 @@ class CloudServices extends ChangeNotifier {
         ),
   );
   Future<void> backupNow() => run(() async {
+    if (!CloudConfig.driveUploadsEnabled) {
+      throw StateError(
+        'Use Export saves in Settings and choose Drive in the Files picker.',
+      );
+    }
     if (!driveEnabled || identity.uid == null) {
       throw StateError('Enable Drive backup first.');
     }

@@ -368,9 +368,17 @@ class _LabScreenState extends State<LabScreen> with WidgetsBindingObserver {
         children: [
           FilledButton.icon(
             onPressed: lab.canExtract
-                ? () {
+                ? () async {
                     FocusScope.of(context).unfocus();
-                    lab.extract(source.text);
+                    try {
+                      await lab.extract(source.text);
+                    } on StateError catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(error.message.toString())),
+                        );
+                      }
+                    }
                   }
                 : null,
             icon: const Icon(Icons.auto_awesome_outlined),

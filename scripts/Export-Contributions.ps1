@@ -8,7 +8,7 @@ if ($RegisterWeekly) {
     $login = New-ScheduledTaskTrigger -AtLogOn -User ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RunOnlyIfNetworkAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)
     $principal = New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-    Register-ScheduledTask -TaskName 'Linqo private contribution export' -Action $action -Trigger @($weekly, $login) -Settings $settings -Principal $principal -Description 'Pull consented Linqo examples and deletion requests; never starts model training.' | Out-Null
+    Register-ScheduledTask -TaskName 'Linqo private contribution export' -Action $action -Trigger @($weekly, $login) -Settings $settings -Principal $principal -Description 'Pull consented Linqo examples and deletion requests; never starts model training.' -Force | Out-Null
     Write-Output 'Weekly local export registered for Sunday 10:00 in this laptop time zone. Missed runs start when the user is logged in and network is available.'
     exit
 }
@@ -18,7 +18,8 @@ if ($Scheduled) {
     if (Test-Path -LiteralPath $checkpoint) {
         $state = Get-Content -LiteralPath $checkpoint -Raw | ConvertFrom-Json
         $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-        if ($now -ge $state.last_success -and ($now - $state.last_success) -lt 604800000) { exit }
+        # Six days leaves room for last week's export to have finished after its trigger time.
+        if ($now -ge $state.last_success -and ($now - $state.last_success) -lt 518400000) { exit }
     }
 }
 Push-Location $project

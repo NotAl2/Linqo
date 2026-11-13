@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:linqo/inference/model_store.dart';
 import 'package:linqo/library/library_backup.dart';
+import 'package:linqo/library/backup_encryption.dart';
 import 'package:linqo/library/library_controller.dart';
 import 'package:linqo/library/library_store.dart';
 import 'package:linqo/library/models.dart';
@@ -87,17 +88,35 @@ void main() {
       );
       await store.favorite(id, true);
       final backup = await LibraryBackup(store, attachments).export(run);
+      final timer = Stopwatch()..start();
+      final encrypted = await BackupEncryption.encrypt(
+        backup,
+        File('${run.path}/protected.linqo'),
+        'Linqo synthetic QA password',
+      );
+      binding.reportData!['encryption_ms'] = timer.elapsedMilliseconds;
+      const driveTest = bool.fromEnvironment('LINQO_TEST_DRIVE_PROVIDER');
       final saving = const MethodChannel('dev.linqo/backup')
           .invokeMethod<String>('save', {
-            'path': backup.path,
-            'name': 'Linqo-QA-backup.zip',
+            'path': encrypted.path,
+            'name': driveTest
+                ? 'Linqo-QA-encrypted-Drive-roundtrip.linqo'
+                : 'Linqo-QA-encrypted-backup.linqo',
+            'encrypted': true,
           });
       debugPrint('LINQO_QA_EXPORT_PICKER');
-      expect(await saving, isNotNull);
+      final savedUri = await saving;
+      expect(savedUri, isNotNull);
+      if (driveTest) {
+        expect(
+          Uri.parse(savedUri!).authority,
+          'com.google.android.apps.docs.storage',
+        );
+        binding.reportData!['drive_export_provider_verified'] = true;
+      }
       binding.reportData!['native_export'] = true;
       final picking = FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
+        type: FileType.any,
         withData: false,
       );
       debugPrint('LINQO_QA_IMPORT_PICKER');
@@ -106,12 +125,39 @@ void main() {
       final targetPath = '${run.path}/restored.db';
       final restored = await LibraryStore.open(path: targetPath);
       try {
-        final restoredFiles = Directory('${run.path}/restored-files');
-        final result = await LibraryBackup(restored, restoredFiles).import(
-          File(picked!.files.single.path!),
-          await run.createTemp('import-'),
+        await restored.setPreference('theme', 'dark');
+        final importedFile = File(picked!.files.single.path!);
+        expect(await BackupEncryption.isEncrypted(importedFile), isTrue);
+        await expectLater(
+          BackupEncryption.decrypt(
+            importedFile,
+            File('${run.path}/wrong.zip'),
+            'wrong QA password',
+          ),
+          throwsFormatException,
         );
+        expect(await File('${run.path}/wrong.zip').exists(), isFalse);
+        expect(await restored.query(), isEmpty);
+        timer.reset();
+        final unlocked = await BackupEncryption.decrypt(
+          importedFile,
+          File('${run.path}/unlocked.zip'),
+          'Linqo synthetic QA password',
+        );
+        binding.reportData!['decryption_ms'] = timer.elapsedMilliseconds;
+        final restoredFiles = Directory('${run.path}/restored-files');
+        final result = await LibraryBackup(
+          restored,
+          restoredFiles,
+        ).import(unlocked, await run.createTemp('import-'));
         expect(result.added, 1);
+        expect(await restored.preference('theme'), 'dark');
+        final duplicate = await LibraryBackup(
+          restored,
+          restoredFiles,
+        ).import(unlocked, await run.createTemp('repeat-'));
+        expect(duplicate.added, 0);
+        expect(duplicate.skipped, 1);
         final item = (await restored.get((await restored.query()).single.id))!;
         expect(item.notes, 'For later');
         expect(item.favorite, isTrue);
@@ -122,6 +168,7 @@ void main() {
         );
         binding.reportData!['native_import'] = true;
         binding.reportData!['restored_file_notes_favourite_membership'] = true;
+        binding.reportData!['wrong_password_and_duplicate_import_safe'] = true;
       } finally {
         await restored.close();
       }

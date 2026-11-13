@@ -1,3 +1,4 @@
+import 'package:linqo/library/search_terms.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,8 +6,15 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:linqo/library/library_store.dart';
 import 'package:linqo/library/models.dart';
 import 'package:linqo/domain/extraction.dart';
+import 'package:linqo/sharing/link_preview.dart';
 
 void main() {
+  test('plural expansion handles boxes and preserves news', () {
+    expect(SearchTerms('boxes').exact.single, 'boxes* OR box*');
+    expect(SearchTerms('news').exact.single, 'news*');
+    expect(SearchTerms('recipes').exact.single, contains('recipe*'));
+  });
+
   sqfliteFfiInit();
   late Directory directory;
   late LibraryStore store;
@@ -83,6 +91,119 @@ void main() {
       expect((await store.query(kind: SaveKind.place)).single.title, 'A walk');
     },
   );
+  test(
+    'related content, plural queries and title relevance work on FTS4 and FTS5',
+    () async {
+      final options = await store.db.rawQuery('PRAGMA compile_options');
+      final modules = [
+        if (options.any((row) => row.values.contains('ENABLE_FTS4'))) 'fts4',
+        if (options.any((row) => row.values.contains('ENABLE_FTS5'))) 'fts5',
+      ];
+      expect(modules, isNotEmpty);
+      for (final module in modules) {
+        await store.db.execute('DROP TABLE save_search');
+        await store.db.execute(
+          'CREATE VIRTUAL TABLE save_search USING '
+          '$module(title, body, summary, details)',
+        );
+        final recipe = await store.save(
+          const SaveDraft(
+            title: 'My summer favourite',
+            kind: SaveKind.recipe,
+            body: 'Blend coffee, milk and ice for an iced drink.',
+          ),
+        );
+        final exact = await store.save(
+          const SaveDraft(title: 'Cold coffee', kind: SaveKind.recipe),
+        );
+        await store.save(
+          const SaveDraft(title: 'Hot coffee', kind: SaveKind.recipe),
+        );
+        final description = await store.save(
+          const SaveDraft(title: 'Another reel'),
+        );
+        await store.applyPreview(
+          description,
+          '',
+          'Another reel',
+          const LinkPreview(description: 'Chilled coffee with milk'),
+        );
+        expect((await store.query(query: 'cold coffee')).map((s) => s.id), [
+          exact,
+          description,
+          recipe,
+        ]);
+        expect(
+          (await store.query(
+            query: 'show me cold coffee recipes',
+          )).map((s) => s.id),
+          [exact, recipe],
+        );
+        expect(
+          (await store.query(
+            query: 'iced coffee',
+            kind: SaveKind.recipe,
+          )).map((s) => s.id),
+          containsAll([recipe, exact]),
+        );
+        expect(await store.query(query: 'cold coffee pizza'), isEmpty);
+        final note = await store.save(
+          const SaveDraft(
+            title: 'Groceries',
+            notes: 'Blueberry smoothie with milk',
+          ),
+        );
+        expect((await store.query(query: 'blueberries')).single.id, note);
+        for (final title in ['Show', 'About', 'Saved']) {
+          final literal = await store.save(SaveDraft(title: title));
+          expect(
+            (await store.query(query: title.toLowerCase())).map((s) => s.id),
+            contains(literal),
+          );
+        }
+        for (final item in await store.query(limit: 100)) {
+          await store.remove(item.id);
+        }
+      }
+    },
+  );
+  test('ranked pagination and v5 search upgrade preserve user data', () async {
+    final id = await store.save(
+      const SaveDraft(
+        title: 'Favourite drink',
+        kind: SaveKind.recipe,
+        body: 'Iced coffee with milk.',
+        notes: 'Keep this',
+      ),
+    );
+    await store.favorite(id, true);
+    await store.setPreference('theme', 'dark');
+    await store.db.rawUpdate('UPDATE save_search SET details=? WHERE rowid=?', [
+      '',
+      id,
+    ]);
+    await store.db.setVersion(5);
+    await store.close();
+    store = await LibraryStore.open(
+      path: '${directory.path}/library.db',
+      factory: databaseFactoryFfiNoIsolate,
+    );
+    expect((await store.query(query: 'cold coffee recipes')).single.id, id);
+    expect((await store.get(id))!.notes, 'Keep this');
+    expect((await store.get(id))!.favorite, isTrue);
+    expect(await store.preference('theme'), 'dark');
+    for (var i = 0; i < 45; i++) {
+      await store.save(
+        const SaveDraft(title: 'Cold coffee', kind: SaveKind.recipe),
+      );
+    }
+    final first = await store.query(query: 'cold coffee', limit: 40);
+    final next = await store.query(query: 'cold coffee', offset: 40);
+    expect(first.length, 40);
+    expect(next.length, 6);
+    expect({...first.map((s) => s.id), ...next.map((s) => s.id)}.length, 46);
+    expect(next.last.id, id);
+  });
   test(
     'editing atomically updates search and invalidates stale extraction',
     () async {

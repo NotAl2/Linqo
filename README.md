@@ -4,7 +4,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 **Linqo is still in active development.** The current Android release is an early preview: features, previews and extraction quality are evolving. Keep originals of important files and export a library backup regularly. Cloud sync is not implemented.
 
-[Download the latest APK](https://github.com/NotAl2/Linqo/releases) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2)
+[Download the latest APK](https://github.com/NotAl2/Linqo/releases) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
 
 <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
 
@@ -18,7 +18,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 - Lavender/purple mascot theme, rounded offline fonts, light/dark/system appearance, adaptive phone/tablet layouts and reduced-motion support.
 - Optional English extraction: the model selects source lines for excerpt summaries, recipe details and places. Summary wording comes from saved text rather than model-written prose. A serial worker keeps browsing available, and extraction can be stopped between or during parts.
 - Optional support link in **Settings → Support Linqo**. A dismissible reminder appears after the first successful save, then after a random 5–12 further saves and at least seven days, at most once per app session. It waits for a quiet library screen, with **Later** and a persistent **Don’t show again** checkbox. No donation is required to use the app.
-- Export/import ZIP backups in Settings, including saves, personal notes, extraction results, favourites, collections and private file copies. Repeat imports skip previously restored saves without overwriting later edits.
+- Export/import password-protected backups in Settings, including saves, personal notes, extraction results, favourites, collections and private file copies. Repeat imports skip previously restored saves without overwriting later edits.
 
 <img src="docs/screenshots/library-light.png" alt="Linqo library with synthetic sample saves" width="260"> <img src="docs/screenshots/library-dark.png" alt="Linqo library in dark mode" width="260">
 
@@ -26,21 +26,25 @@ Screenshots use synthetic demonstration saves; the app starts with your own libr
 
 ## Development updates
 
-### Unreleased v0.9.0 account/backup beta
+### v0.9.0 prebuild · build 25
 
-The working tree adds **Settings → Account, tiers & Drive backup**: optional Firebase Google login, optional daily/manual Drive backup and restore, tier/purchase controls and separately consented extraction contributions. **Google sign-in and manual Drive upload/merge restore passed on the Redmi; broader cloud qualification and live Cashfree purchase acceptance remain pending.** Missing configuration preserves local use. This is not v1.0 stable.
+**Active development — payments are disabled.** This prebuild enforces:
 
-Firebase project, Google provider, development signing fingerprints and the backend project binding are configured for the private connected preview, with billing unlinked. Real-device testing also fixed a backup worker capturing live app timers; export and import now send only snapshot data and paths to background workers. Production OAuth publishing, multi-device/failure testing and Cashfree activation remains pending. See the cloud guide for generating a private configured build; ordinary builds without configuration retain local guest use.
+| Tier | Current saves | Collections | Compatible custom-model imports |
+| --- | ---: | ---: | --- |
+| Free | 100 | 5 | No |
+| XL | 500 | 30 | No |
+| XXL | No product quota | No product quota | Yes |
 
-Planned one-time tiers: **Free: 50 saves / 5 collections; XL ₹449: 250 / 25; XXL ₹649: unlimited and compatible custom-model imports**. Built-in English AI and backups stay free. Existing/restored over-limit data and installed models are preserved. **Paid limits and checkout stay disabled in the development preview until real purchase/restoration/refund acceptance passes.** Ordinary donations remain voluntary and do not grant a tier. Cashfree orders bind to the Google identity on the server before hosted checkout; there is no purchase code to paste. Indian payments use fixed INR prices; international purchases are deferred. Buy Me a Coffee is retained only for donations. See the [Cashfree setup guide](docs/CASHFREE_SETUP.md). Future customization is not yet delivered.
+Built-in English extraction, local search and password-protected export/import remain free. Existing and restored over-limit libraries stay readable, editable, searchable and exportable; only new additions are blocked. Deleting content frees slots. Already installed models are preserved. No hosted AI inference or automatic training is introduced.
 
-See [cloud setup](cloud/README.md), [privacy](policies/PRIVACY.md), [purchases](policies/PURCHASES.md) and [private training workflow](tools/training/README.md). Model fine-tuning runs manually on separately reviewed data; no model improvement is claimed from merely collecting samples.
+> **Want the full version for this prebuild?** Email [aryandurgude123@gmail.com](mailto:aryandurgude123@gmail.com) with your requested XL/XXL tier and Linqo account code from **Settings → Account** after Google sign-in. Access requests are reviewed manually and an approved grant is restorable with that Google account. Do not send passwords or private saves. Donations are optional and do not automatically unlock access.
 
-Public [Linqo information](https://linqo-app-notal2.web.app/), [privacy](https://linqo-app-notal2.web.app/privacy) and [support](https://linqo-app-notal2.web.app/support) pages are hosted on Firebase Spark for OAuth preparation. See the [production setup checklist](docs/PRODUCTION_SETUP.md) for owner console steps, current Drive test coverage and Cashfree activation prerequisites. Publishing the pages does not mean Google has approved the OAuth brand or that purchases are activated.
+The account screen shows your usage and includes email-request actions instead of checkout. Privacy, terms and access/refund notices are readable offline in Settings and before sign-in. These product quotas apply to official builds; the [Apache-2.0 source licence](LICENSE) remains unchanged. Enhanced XL model options and future customization are planned, not currently delivered benefits.
 
-Local milestone recovery uses `scripts/Backup-Project.ps1 -Milestone <step-name>`, keeping three verified private project archives. See [project backup instructions](docs/PROJECT_BACKUPS.md); these archives include private configuration and must not be published.
+Optional Google accounts, encrypted backups through Android Files/Drive, old Drive snapshot restore and Google-linked access restoration are implemented. Sharing, source extraction, backup and restoration have been tested with synthetic data on a Redmi Note 7 Pro; coverage and timing vary by source/device. This is not v1.0 stable. See [current prebuild checks](docs/PREBUILD_REVIEW.md), [privacy](policies/PRIVACY.md), [terms](policies/TERMS.md) and [access/refund policy](policies/PURCHASES.md).
 
-Contribution uploads are paused in both this preview's client and backend, including previously stored consent. Google account information and Drive backup data are excluded from training; contribution provenance/consent review must pass before a future build enables that separate feature.
+Polar is prepared for future checkout and the owner reports verification and withdrawals working. **Sales are still paused by choice**, independently of provider approval. Historical Cashfree purchases, refunds and verified manual/gift access remain restorable. Applied migrations are retained to preserve financial history. Contributions and automatic training uploads remain disabled. No automatic donation-to-tier integration is enabled.
 
 ### Published v0.8.3
 
@@ -65,7 +69,7 @@ Verification includes a 139-test host regression run, 19 final targeted UI check
 
 First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
 
-Published v0.8.3 is unlimited and donation-supported. The unreleased v0.9.0 integration prepares optional accounts, Drive backup and Cashfree INR tiers, with payment/usage limits disabled until acceptance. The library, search, notes, local backups and optional AI run locally. Fetching captions/previews, model downloads, optional GitHub checks and enabled cloud features use the internet. Weekly update checks can be disabled in Settings.
+Published v0.8.3 is unlimited and donation-supported. The v0.9.0 prebuild adds optional accounts, encrypted Files/Drive backups and local tier limits, while payments remain disabled. The library, search, notes, local backups and optional AI run locally. Fetching captions/previews, model downloads, optional GitHub checks and enabled cloud features use the internet. Weekly update checks can be disabled in Settings.
 
 ## New in v0.8.0 (development preview)
 
@@ -102,7 +106,7 @@ Settings offers a resumable, checksum-verified download of [Qwen3-0.6B Q4_K_M](h
 
 Inference runs locally through llamadart/llama.cpp with **two CPU threads**, a 2,048-token context and one active extraction at a time. Long sources run as token-checked parts within that context, with visible progress. Selection persists; weights load on demand and unload after processing/backgrounding. Settings can delete the optional model and download it again. Startup, foreground recovery, Settings and model loading recheck the private model files; missing/damaged files stop being advertised as installed. Download size is not a RAM estimate: inference can use considerably more memory and depends on your device.
 
-Sharing or saving a link starts public content fetching automatically. The fetched caption, recipe or webpage text appears in **Content for extraction**, independently of the optional model. Sender-provided text is retained; manually edited source text and **Your notes** stay protected. A source label distinguishes captions, caption excerpts, webpage text and video descriptions; a YouTube description is not a transcript.
+Sharing or saving a link starts public content fetching automatically. The fetched caption, recipe or webpage text is available through **⋮ → View saved source** or the editor, independently of the optional model. Sender-provided text is retained; manually edited source text and **Your notes** stay protected. A source label distinguishes captions, caption excerpts, webpage text and video descriptions; a YouTube description is not a transcript.
 
 With a model installed, **Settings → Summarize saves automatically** defaults on. New saves can queue English summarization after their source text arrives; each save can opt out, and Stop remains available. Existing empty link saves are eligible for content fetching after migration. Failed public fetches can retry on restart or returning to the foreground; repeated foreground recovery has a one-minute cooldown per app session. **Retry content fetch** and **Refresh details** are also available. No model is downloaded automatically. Review generated results; source citations do not guarantee factual accuracy.
 
@@ -120,7 +124,7 @@ The [automatic content report](docs/AUTOMATIC_CONTENT.md) and earlier [release r
 
 ## Privacy and storage
 
-**Settings → Export saves** writes a portable ZIP to your chosen destination. **Import saves** merges a Linqo backup into the current library; it preserves current settings and does not replace existing saves. Model weights, model selection, transient Android share receipts and cached preview images are excluded. Use Refresh details to fetch missing covers again. Backups are unencrypted and contain your saved text and file copies; keep them private. Version 1 supports up to 10,000 saves, 16 MiB of library text and 512 MiB of file copies. Missing private file copies cause export to fail rather than silently omit them.
+**Settings → Export saves** writes a password-protected `.linqo` file to your chosen destination. Android’s Files picker can save to/open from Drive without signing into Linqo. New automatic Drive API uploads are disabled; earlier app-data snapshots remain restorable. **Import saves** merges a Linqo backup into the current library; it preserves current settings and does not replace existing saves. Model weights, model selection, transient Android share receipts and cached preview images are excluded. Use Refresh details to fetch missing covers again. Keep your backup password separately: it cannot be recovered. Legacy unencrypted ZIP backups remain importable and contain saved text and file copies; keep them private. Version 1 supports up to 10,000 saves, 16 MiB of library text and 512 MiB of file copies. Missing private file copies cause export to fail rather than silently omit them.
 
 Saves and file copies live in private app storage. No account is required for the local library and no hosted inference service or continuous cloud sync is used. Android system cloud backup is disabled. The unreleased optional Drive integration uploads a library only after separate permission; optional contributions require separate explicit consent. See the privacy policy above. Adding/sharing or refreshing a link contacts its public provider; model setup contacts Hugging Face; support opens Buy Me a Coffee. GitHub checks and local diagnostics retain their existing controls. Local extraction notifications need no server.
 
@@ -160,4 +164,7 @@ Bug reports and contributions are welcome. Include Android/device details, repro
 
 Original code: [Apache License 2.0](LICENSE). Fonts, dependencies and optional models retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md), the [accompanying license bundle](THIRD_PARTY_LICENSES.txt) attached to Releases, and **Settings → Open-source licenses**. Keep the license bundle with redistributed APKs; native runtime attribution supplements Flutter's generated list. The license does not grant trademark rights.
 
-If Linqo is useful to you, [buy me a coffee](https://buymeacoffee.com/notal2) to support its development. Donations are optional.
+If Linqo is useful to you, [buy me a coffee](https://buymeacoffee.com/notal2) to support its development, or [buy me a tea](https://buymeatea.online/notal2) if you’re supporting from India. Donations are optional.
+
+Prebuild grants are managed through private maintainer tools, not public coupons or an in-app admin switch. Future paid sales require a separate release decision and remaining legal/operational checks.
+

@@ -256,22 +256,24 @@ class LibraryBackup {
     }
     final input = InputFileStream(path);
     try {
-      final zip = ZipDecoder().decodeStream(input);
-      if (zip.length > maxItems + 1) {
+      // ZipDecoder eagerly expands symlink targets, so validate headers first.
+      final directory = ZipDirectory()..read(input);
+      if (directory.fileHeaders.length > maxItems + 1) {
         throw const FormatException('Too many backup files.');
       }
       var total = 0;
-      for (final entry in zip) {
-        total += entry.size;
-        if (!entry.isFile ||
-            entry.isSymbolicLink ||
-            entry.size < 0 ||
+      for (final header in directory.fileHeaders) {
+        final entry = header.file!;
+        total += entry.uncompressedSize;
+        if ((header.externalFileAttributes >> 16) & 0xf000 == 0xa000 ||
+            entry.uncompressedSize < 0 ||
             total > maxBytes + maxManifest ||
-            (entry.name != 'library.json' &&
-                !RegExp(r'^files/[a-f0-9]{64}$').hasMatch(entry.name))) {
+            (entry.filename != 'library.json' &&
+                !RegExp(r'^files/[a-f0-9]{64}$').hasMatch(entry.filename))) {
           throw const FormatException('This is not a valid Linqo backup.');
         }
       }
+      final zip = ZipDecoder().decodeStream(input);
       final json = zip.find('library.json');
       if (json == null || json.size > maxManifest) {
         throw const FormatException(

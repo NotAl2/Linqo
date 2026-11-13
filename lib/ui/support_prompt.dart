@@ -50,7 +50,7 @@ class _SupportPromptState extends State<SupportPrompt> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'A little home for your good finds, made with care. If Linqo makes your day a little easier, a coffee helps us keep building. Support is always optional.',
+            'A little home for your good finds, made with care. If Linqo makes your day a little easier, a coffee or tea helps us keep building. Support is always optional.',
           ),
           const SizedBox(height: 16),
           CheckboxListTile(
@@ -77,38 +77,50 @@ class _SupportPromptState extends State<SupportPrompt> {
           onPressed: saving || opening ? null : () => Navigator.pop(context),
           child: const Text('Later'),
         ),
-        FilledButton.icon(
-          onPressed: saving || opening
-              ? null
-              : () async {
-                  setState(() {
-                    opening = true;
-                    error = null;
-                  });
-                  try {
-                    if (!await launchUrl(
-                      Uri.parse('https://buymeacoffee.com/notal2'),
-                      mode: LaunchMode.externalApplication,
-                    )) {
-                      throw StateError(
-                        'Could not open Buy Me a Coffee. Please try the support link in Settings.',
-                      );
+        for (final (url, label, icon) in const [
+          (
+            'https://buymeacoffee.com/notal2',
+            'Buy me a coffee',
+            Icons.coffee_outlined,
+          ),
+          (
+            'https://buymeatea.online/notal2',
+            'Buy me a tea · India',
+            Icons.emoji_food_beverage_outlined,
+          ),
+        ])
+          FilledButton.icon(
+            onPressed: saving || opening
+                ? null
+                : () async {
+                    setState(() {
+                      opening = true;
+                      error = null;
+                    });
+                    try {
+                      if (!await launchUrl(
+                        Uri.parse(url),
+                        mode: LaunchMode.externalApplication,
+                      )) {
+                        throw StateError(
+                          'Could not open the support page. Please try the support link in Settings.',
+                        );
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    } catch (_) {
+                      if (context.mounted) {
+                        setState(
+                          () => error =
+                              'Could not open the support page. Try again, or use the support link in Settings.',
+                        );
+                      }
+                    } finally {
+                      if (context.mounted) setState(() => opening = false);
                     }
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (_) {
-                    if (context.mounted) {
-                      setState(
-                        () => error =
-                            'Could not open Buy Me a Coffee. Try again, or use the support link in Settings.',
-                      );
-                    }
-                  } finally {
-                    if (context.mounted) setState(() => opening = false);
-                  }
-                },
-          icon: const Icon(Icons.coffee_outlined),
-          label: Text(opening ? 'Opening…' : 'Buy me a coffee'),
-        ),
+                  },
+            icon: Icon(icon),
+            label: Text(opening ? 'Opening…' : label),
+          ),
       ],
     ),
   );

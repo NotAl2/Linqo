@@ -335,9 +335,12 @@ class LabController extends ChangeNotifier {
   }
 
   Future<void> extract(String text, {String? typeHint}) async {
-    if (!canExtract) return;
-    // A rejected retry must never leave the preceding save's result available
-    // for callers to persist as though it belonged to the new source.
+    // A skipped run must not look successful to callers persisting its result.
+    if (!canExtract) {
+      throw StateError(
+        'The model is not ready. Wait for processing to finish and try again.',
+      );
+    }
     result = null;
     report = null;
     evidence = null;
