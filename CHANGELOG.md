@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 build 26 — offline policy reader fix
+
+- Normalize Windows line endings so bundled legal notices display separate headings and readable body paragraphs.
+- Preserve payments-disabled prebuild limits, saves and settings.
+
 ## 0.9.0 build 25 — limited prebuild
 
 - Enable Free 100 saves/5 collections, XL 500/30 and XXL without product quotas, independently of sign-in/network setup. Preserve existing/restored over-limit content and installed models. Built-in English extraction and backups remain free.

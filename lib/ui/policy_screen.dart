@@ -33,7 +33,8 @@ class _PolicyScreenState extends State<PolicyScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              for (final block in snapshot.data!.split('\n\n'))
+              for (final block
+                  in snapshot.data!.replaceAll('\r\n', '\n').split('\n\n'))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 18),
                   child: Text(

@@ -4,7 +4,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 **Linqo is still in active development.** The current Android release is an early preview: features, previews and extraction quality are evolving. Keep originals of important files and export a library backup regularly. Cloud sync is not implemented.
 
-[Earlier previews](https://github.com/NotAl2/Linqo/releases) · [Try the v0.9.0 prebuild](https://github.com/NotAl2/Linqo/releases/tag/v0.9.0) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
+[Earlier previews](https://github.com/NotAl2/Linqo/releases) · [Try the v0.9.1 prebuild](https://github.com/NotAl2/Linqo/releases/tag/v0.9.1) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
 
 <p align="center">
   <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
@@ -40,7 +40,9 @@ Screenshots use synthetic demonstration saves; the app starts with your own libr
 
 ## Development updates
 
-### v0.9.0 prebuild · build 25
+### v0.9.1 prebuild · build 26
+
+Patch: offline legal notices now separate headings and body paragraphs correctly on Windows-built APKs.
 
 **Active development — payments are disabled.** This prebuild enforces:
 
@@ -83,7 +85,7 @@ Verification includes a 139-test host regression run, 19 final targeted UI check
 
 First-start onboarding now uses a native Flutter tutorial with lightweight transitions and interactive examples for saving and collections. It supports Skip, reduced motion and replay from **Settings → A quick tour of Linqo**. No tutorial videos or tutorial image assets are bundled. The optional model remains a separate download.
 
-Published v0.8.3 is unlimited and donation-supported. The v0.9.0 prebuild adds optional accounts, encrypted Files/Drive backups and local tier limits, while payments remain disabled. The library, search, notes, local backups and optional AI run locally. Fetching captions/previews, model downloads, optional GitHub checks and enabled cloud features use the internet. Weekly update checks can be disabled in Settings.
+Published v0.8.3 is unlimited and donation-supported. The v0.9.1 prebuild adds optional accounts, encrypted Files/Drive backups and local tier limits, while payments remain disabled. The library, search, notes, local backups and optional AI run locally. Fetching captions/previews, model downloads, optional GitHub checks and enabled cloud features use the internet. Weekly update checks can be disabled in Settings.
 
 ## New in v0.8.0 (development preview)
 

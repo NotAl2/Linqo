@@ -1,4 +1,4 @@
-# Linqo 0.9.0 build 25 prebuild — 13 November 2026
+# Linqo 0.9.1 build 26 prebuild — 13 November 2026
 
 Active development. Payments and training contributions are disabled. Polar verification and working withdrawals are reported by the owner; public sales remain paused by choice.
 
@@ -26,6 +26,6 @@ The remote README showcase GIF and screenshots were merged without overwriting t
 
 ## Publication
 
-Published as [v0.9.0 pre-release](https://github.com/NotAl2/Linqo/releases/tag/v0.9.0), with the ARM64 build-25 APK, SHA-256 file, Apache LICENSE, NOTICE and dependency/native notices. Remote APK size/digest match the local artifact. GitHub registered both Buy Me a Coffee and Buy Me a Tea funding links. Earlier releases are also previews; no stable release is claimed. Website policy deployment succeeded, and backend health still reports payments/contributions disabled.
+Published as [v0.9.1 pre-release](https://github.com/NotAl2/Linqo/releases/tag/v0.9.1), with the ARM64 build-26 APK, SHA-256 file, Apache LICENSE, NOTICE and dependency/native notices. Remote APK size/digest match the local artifact. GitHub registered both Buy Me a Coffee and Buy Me a Tea funding links. Earlier releases are also previews; no stable release is claimed. Website policy deployment succeeded, and backend health still reports payments/contributions disabled.
 
-The normal Redmi app was not updated. QA build 25 was installed in place after its credential scan; the final native visual inspection remains pending because the device locked. Large-text/light/dark account and offline-notice widget tests passed; this does not replace that pending physical screen check.
+The normal Redmi app was not updated. QA build 26 was installed in place after its credential scan; the final native visual inspection remains pending because the device locked. Large-text/light/dark account and offline-notice widget tests passed; this does not replace that pending physical screen check.
