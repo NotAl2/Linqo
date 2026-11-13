@@ -4,7 +4,7 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 **Linqo is still in active development.** The current Android release is an early preview: features, previews and extraction quality are evolving. Keep originals of important files and export a library backup regularly. Cloud sync is not implemented.
 
-[Download the latest APK](https://github.com/NotAl2/Linqo/releases) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
+[Stable APK](https://github.com/NotAl2/Linqo/releases/latest) · [Try the v0.9.0 prebuild](https://github.com/NotAl2/Linqo/releases/tag/v0.9.0) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
 
 <p align="center">
   <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
