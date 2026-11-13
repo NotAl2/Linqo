@@ -6,7 +6,12 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 
 [Download the latest APK](https://github.com/NotAl2/Linqo/releases) · [Report an issue](https://github.com/NotAl2/Linqo/issues) · [Buy me a coffee](https://buymeacoffee.com/notal2) · [Buy me a tea (India)](https://buymeatea.online/notal2)
 
-<img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
+<p align="center">
+  <img src="assets/brand/linqo-full.png" alt="Linqo's cheerful bookmark collector" width="170">
+</p>
+<p align="center">
+  <img src="linqo.gif" alt="Linqo Showcase" width="100%">
+</p>
 
 ## What works today
 
@@ -20,7 +25,16 @@ A private Flutter bookmark app for links, reels, videos, places, files and notes
 - Optional support link in **Settings → Support Linqo**. A dismissible reminder appears after the first successful save, then after a random 5–12 further saves and at least seven days, at most once per app session. It waits for a quiet library screen, with **Later** and a persistent **Don’t show again** checkbox. No donation is required to use the app.
 - Export/import password-protected backups in Settings, including saves, personal notes, extraction results, favourites, collections and private file copies. Repeat imports skip previously restored saves without overwriting later edits.
 
-<img src="docs/screenshots/library-light.png" alt="Linqo library with synthetic sample saves" width="260"> <img src="docs/screenshots/library-dark.png" alt="Linqo library in dark mode" width="260">
+<table>
+  <tr>
+    <th>Light mode</th>
+    <th>Dark mode</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/library-light.png" alt="Linqo library in light mode" width="260"></td>
+    <td><img src="docs/screenshots/library-dark.jpg" alt="Linqo library in dark mode" width="260"></td>
+  </tr>
+</table>
 
 Screenshots use synthetic demonstration saves; the app starts with your own library.
 
