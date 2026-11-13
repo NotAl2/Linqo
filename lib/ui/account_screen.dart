@@ -215,7 +215,7 @@ class AccountScreen extends StatelessWidget {
         final signedIn = cloud.identity.uid != null;
         final disabled = cloud.busy || !cloud.initialized;
         final checkoutAvailable =
-            CloudConfig.checkoutEnabled && cloud.paymentsLive && signedIn;
+            CloudConfig.checkoutEnabled && cloud.paymentsLive;
         return Scaffold(
           appBar: AppBar(title: const Text('Account & backup')),
           body: SafeArea(
